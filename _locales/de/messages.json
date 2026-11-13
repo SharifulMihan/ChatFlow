@@ -1,0 +1,179 @@
+{
+  "extName": {
+    "message": "ChatFlow"
+  },
+  "extDesc": {
+    "message": "WhatsApp- und Messenger-Chats scannen und als Word-, PDF- oder Textdatei exportieren."
+  },
+  "navOverview": {
+    "message": "Übersicht"
+  },
+  "navParticipants": {
+    "message": "Teilnehmer"
+  },
+  "navExport": {
+    "message": "Export"
+  },
+  "navSettings": {
+    "message": "Einstellungen"
+  },
+  "btnScan": {
+    "message": "Chat scannen"
+  },
+  "btnCancel": {
+    "message": "Abbrechen"
+  },
+  "btnScanFromHere": {
+    "message": "Ab hier scannen"
+  },
+  "exportTitle": {
+    "message": "Unterhaltung exportieren"
+  },
+  "exportLayout": {
+    "message": "Layout"
+  },
+  "layoutBubbles": {
+    "message": "Sprechblasen"
+  },
+  "layoutCompact": {
+    "message": "Kompaktes Transkript"
+  },
+  "layoutPlain": {
+    "message": "Nur Text"
+  },
+  "exportDateFormat": {
+    "message": "Datumsformat"
+  },
+  "exportTimeFormat": {
+    "message": "Zeitformat"
+  },
+  "exportPageSize": {
+    "message": "Seitengröße"
+  },
+  "exportFontSize": {
+    "message": "Schriftgröße"
+  },
+  "exportColorMode": {
+    "message": "Farbmodus"
+  },
+  "colorModeColor": {
+    "message": "Farbe"
+  },
+  "colorModeBw": {
+    "message": "Schwarzweiß"
+  },
+  "myNameLabel": {
+    "message": "Mein Name in Exporten"
+  },
+  "renameParticipants": {
+    "message": "Teilnehmer umbenennen"
+  },
+  "previewTitle": {
+    "message": "Live-Vorschau (erste 5 Blöcke)"
+  },
+  "btnDownloadDocx": {
+    "message": "Word (.docx) herunterladen"
+  },
+  "btnDownloadPdf": {
+    "message": "PDF exportieren"
+  },
+  "btnDownloadTxt": {
+    "message": "Text (.txt) herunterladen"
+  },
+  "privacyNotice": {
+    "message": "Alles wird lokal verarbeitet. Keine Daten verlassen Ihr Gerät."
+  },
+  "reportProblem": {
+    "message": "Problem melden"
+  },
+  "stepLoad": {
+    "message": "Load history"
+  },
+  "stepRead": {
+    "message": "Read messages"
+  },
+  "stepPrepare": {
+    "message": "Prepare export"
+  },
+  "stallHint": {
+    "message": "Older messages aren't loading right now. You can stop here and start the scan, or scroll up in the chat to load more."
+  },
+  "btnStopLoading": {
+    "message": "Stop loading"
+  },
+  "btnStartScan": {
+    "message": "Start scan"
+  },
+  "btnLoadMore": {
+    "message": "Load more history"
+  },
+  "tipNever": {
+    "message": "Don't show again"
+  },
+  "liveDirectionNote": {
+    "message": "Double-checking who sent what..."
+  },
+  "preparingLine": {
+    "message": "Checking everything and building your summary..."
+  },
+  "participantsTitle": {
+    "message": "Participants"
+  },
+  "btnConfirmWho": {
+    "message": "Confirm who is who"
+  },
+  "btnSwapSides": {
+    "message": "Swap sides"
+  },
+  "scanComplete": {
+    "message": "Scan complete"
+  },
+  "totalMessages": {
+    "message": "Total messages"
+  },
+  "dateRange": {
+    "message": "Date range"
+  },
+  "scanHealth": {
+    "message": "Scan health"
+  },
+  "btnRescan": {
+    "message": "Rescan"
+  },
+  "confirmTitle": {
+    "message": "Confirm who is who"
+  },
+  "confirmDesc": {
+    "message": "I couldn't tell for sure which messages are yours. Which side is you?"
+  },
+  "leftSide": {
+    "message": "Left side"
+  },
+  "rightSide": {
+    "message": "Right side"
+  },
+  "btnLeftIsMe": {
+    "message": "Left side is me"
+  },
+  "btnRightIsMe": {
+    "message": "Right side is me"
+  },
+  "btnLater": {
+    "message": "Decide later"
+  },
+  "autoStartLabel": {
+    "message": "Start reading automatically when the full history is loaded"
+  },
+  "autoStartNote": {
+    "message": "Only starts when the true beginning of the chat was reached."
+  },
+  "tipResetLabel": {
+    "message": "Show helpful tips"
+  },
+  "tipResetBtn": {
+    "message": "Show tips again"
+  },
+  "diagnosticsTitle": {
+    "message": "Diagnostics"
+  }
+}

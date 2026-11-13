@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChatFlow</title>
+  <!-- Flat Design Tokens, Components, and Layout -->
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+</head>
+<body>
+
+  <!-- ─── Slim Navigation Rail (56px) ───────────────────────────────────────── -->
+  <aside class="nav-rail">
+    <div class="rail-top">
+      <div class="rail-logo-box" id="rail-logo" title="ChatFlow - Chat to document">
+        <svg viewBox="0 0 128 128" width="34" height="34" fill="none">
+          <rect width="128" height="128" rx="28" fill="var(--primary)" />
+          <path d="M26 30h42a10 10 0 0 1 10 10v16a10 10 0 0 1-10 10H46l-14 11v-11h-6a10 10 0 0 1-10-10V40a10 10 0 0 1 10-10Z" fill="#FFFFFF" fill-opacity="0.85" />
+          <path d="M52 44h40a10 10 0 0 1 10 10v30l-16 16H52a10 10 0 0 1-10-10V54a10 10 0 0 1 10-10Z" fill="#FFFFFF" />
+          <path d="M42 82l-14 10 4-10h10Z" fill="#FFFFFF" />
+          <path d="M86 100v-10a6 6 0 0 1 6-6h10L86 100Z" fill="var(--primary-dark)" />
+          <rect x="54" y="56" width="34" height="4" rx="2" fill="#1B1D2A" />
+          <rect x="54" y="65" width="24" height="4" rx="2" fill="#1B1D2A" />
+          <rect x="54" y="74" width="28" height="4" rx="2" fill="var(--primary)" />
+        </svg>
+      </div>
+
+      <nav class="rail-nav-list" role="tablist">
+        <button id="nav-btn-overview" class="rail-btn active" role="tab" aria-selected="true" aria-label="Overview">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="9"></rect>
+            <rect x="14" y="3" width="7" height="5"></rect>
+            <rect x="14" y="12" width="7" height="9"></rect>
+            <rect x="3" y="16" width="7" height="5"></rect>
+          </svg>
+          <span class="rail-tooltip">Overview</span>
+        </button>
+
+        <button id="nav-btn-participants" class="rail-btn" role="tab" aria-selected="false" aria-label="Participants">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span class="rail-tooltip">Participants</span>
+        </button>
+
+        <button id="nav-btn-export" class="rail-btn" role="tab" aria-selected="false" aria-label="Export">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span class="rail-tooltip">Export</span>
+        </button>
+
+        <button id="nav-btn-settings" class="rail-btn" role="tab" aria-selected="false" aria-label="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span class="rail-tooltip">Settings</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="rail-bottom">
+      <button id="rail-btn-rescan" class="rail-btn" aria-label="Rescan conversation">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        <span class="rail-tooltip">Rescan</span>
+      </button>
+
+      <button id="rail-btn-clear" class="rail-btn" aria-label="Clear session data">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span class="rail-tooltip">Clear data</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ─── Main Content Column ──────────────────────────────────────────────── -->
+  <div class="app-container">
+
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <div class="avatar-tile" id="top-avatar">CF</div>
+        <div class="top-bar-meta">
+          <div style="display:flex; align-items:center; gap:6px; overflow:hidden; min-width:0;">
+            <span id="top-chat-title" class="top-chat-title">Detecting chat...</span>
+            <span id="top-platform-badge" class="platform-badge hidden">WhatsApp</span>
+          </div>
+          <span class="top-chat-subtitle" id="top-chat-sub">Active chat</span>
+        </div>
+      </div>
+
+      <div class="top-bar-right">
+        <button id="top-btn-refresh" class="btn btn-outline" style="padding: 6px 10px; font-size: 11px;" title="Refresh active chat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scrollable View Area -->
+    <main class="app-scrollable">
+
+      <!-- State: Not on a Supported Site -->
+      <section id="state-not-supported" class="flat-card state-box hidden">
+        <div class="state-icon-circle">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <h2 class="state-title">WhatsApp or Messenger</h2>
+        <p class="state-desc">Open WhatsApp Web or Facebook Messenger and select any conversation to begin scanning.</p>
+        <div style="display:flex; flex-direction:column; gap:8px; width:100%;">
+          <button id="btn-open-wa" class="btn btn-primary btn-block">
+            <span>Open WhatsApp Web</span>
+          </button>
+          <button id="btn-open-msgr" class="btn btn-outline btn-block">
+            <span>Open Messenger</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- State: Select a Chat -->
+      <section id="state-select-chat" class="flat-card state-box hidden">
+        <div class="state-icon-circle">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <h2 class="state-title">Select a Conversation</h2>
+        <p class="state-desc" id="select-chat-desc">Click any chat on WhatsApp Web or Messenger to start analyzing and exporting.</p>
+      </section>
+
+      <!-- State: Ready to Scan -->
+      <section id="state-ready" class="flat-card state-box hidden">
+        <div class="state-icon-circle">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </div>
+        <h2 class="state-title" id="ready-title-text">Ready to Scan</h2>
+        <p class="state-desc">Click below to read all messages from the beginning to the latest message.</p>
+        <button id="btn-scan" class="btn btn-primary btn-block">
+          <span>Scan this chat</span>
+        </button>
+      </section>
+
+      <!-- State: Scanning (3 phases + manual "Ready to scan") -->
+      <section id="state-scanning" class="flat-card state-box scan-card hidden" aria-labelledby="scan-title">
+
+        <!-- 3-step stepper -->
+        <ol class="stepper" id="scan-stepper" aria-label="Scan progress">
+          <li class="step active" data-step="1" id="step-1"><span class="step-dot" aria-hidden="true">1</span><span class="step-label" data-i18n="stepLoad">Load history</span></li>
+          <li class="step" data-step="2" id="step-2"><span class="step-dot" aria-hidden="true">2</span><span class="step-label" data-i18n="stepRead">Read messages</span></li>
+          <li class="step" data-step="3" id="step-3"><span class="step-dot" aria-hidden="true">3</span><span class="step-label" data-i18n="stepPrepare">Prepare export</span></li>
+        </ol>
+
+        <!-- Announces phase changes only (never counter ticks) -->
+        <div id="scan-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+        <h2 id="scan-title" class="state-title scan-title" tabindex="-1">Loading chat history...</h2>
+
+        <!-- VIEW: Phase 1 - Loading history (no message count here) -->
+        <div id="view-loading" class="scan-view">
+          <p class="scan-line" id="loading-oldest">Looking for older messages...</p>
+          <div class="indeterminate-track" role="progressbar" aria-label="Loading chat history" aria-busy="true"><div class="indeterminate-bar"></div></div>
+          <p class="scan-meta" id="loading-elapsed">Elapsed: 0:00</p>
+          <div id="scan-stall-hint" class="scan-stall-hint hidden">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span data-i18n="stallHint">Older messages aren't loading right now. You can stop here and start the scan, or scroll up in the chat to load more.</span>
+          </div>
+          <div class="scan-actions-row">
+            <button id="btn-cancel" class="btn btn-cancel-scan" type="button"><span data-i18n="btnCancel">Cancel</span></button>
+            <button id="btn-stop-loading" class="btn btn-primary btn-finalize-scan" type="button"><span data-i18n="btnStopLoading">Stop loading</span></button>
+          </div>
+        </div>
+
+        <!-- VIEW: Ready to scan (completely passive) -->
+        <div id="view-ready" class="scan-view hidden">
+          <span id="ready-badge" class="state-badge partial"><span class="badge-dot" aria-hidden="true"></span><span id="ready-badge-text">Partial history</span></span>
+          <p class="scan-line" id="ready-status">History loaded back to -</p>
+          <p class="scan-meta" id="ready-message"></p>
+          <div class="ready-actions">
+            <button id="btn-start-scan" class="btn btn-primary btn-block" type="button"><span data-i18n="btnStartScan">Start scan</span></button>
+            <button id="btn-load-more" class="btn btn-outline btn-block" type="button"><span data-i18n="btnLoadMore">Load more history</span></button>
+            <button id="btn-ready-cancel" class="btn-text" type="button"><span data-i18n="btnCancel">Cancel</span></button>
+          </div>
+          <!-- Floating tip, anchored right below the buttons -->
+          <div id="ready-tip" class="floating-tip hidden" role="group" aria-label="Tip">
+            <span class="tip-arrow" aria-hidden="true"></span>
+            <svg class="tip-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <div class="tip-body">
+              <p id="ready-tip-text"></p>
+              <button id="btn-tip-never" class="tip-link" type="button"><span data-i18n="tipNever">Don't show again</span></button>
+            </div>
+            <button id="btn-tip-close" class="tip-close" type="button" aria-label="Dismiss tip">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- VIEW: Phase 2 - Reading messages (the only counting pass) -->
+        <div id="view-reading" class="scan-view hidden">
+          <div class="flat-progress-track" role="progressbar" id="reading-progress" aria-label="Reading messages" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="reading-bar" class="flat-progress-bar" style="width:0%"></div>
+          </div>
+          <div class="scan-counter-val" id="scan-count">0</div>
+          <div class="scan-counter-lbl" id="scan-count-label">Messages read: 0</div>
+          <p class="scan-line" id="reading-date">Reading...</p>
+          <p class="scan-meta" id="reading-speed"></p>
+          <p id="reading-direction-note" class="scan-meta hidden" data-i18n="liveDirectionNote">Double-checking who sent what...</p>
+          <div class="scan-actions-row">
+            <button id="btn-reading-cancel" class="btn btn-cancel-scan" type="button"><span data-i18n="btnCancel">Cancel</span></button>
+          </div>
+        </div>
+
+        <!-- VIEW: Phase 3 - Preparing summary -->
+        <div id="view-preparing" class="scan-view hidden">
+          <div class="indeterminate-track" role="progressbar" aria-label="Preparing summary" aria-busy="true"><div class="indeterminate-bar"></div></div>
+          <p class="scan-line" data-i18n="preparingLine">Checking everything and building your summary...</p>
+        </div>
+      </section>
+
+      <!-- State: Error -->
+      <section id="state-error" class="flat-card state-box hidden" style="background: rgba(239, 83, 80, 0.1);">
+        <div class="state-icon-circle" style="color: var(--negative); background: rgba(239, 83, 80, 0.15);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <h2 class="state-title" style="color: #FF8A80;">Scan Notice</h2>
+        <p class="state-desc" id="error-message">Unable to read conversation.</p>
+        <div style="display:flex; flex-direction:column; gap:8px; width:100%;">
+          <button id="btn-reload-tab" class="btn btn-primary btn-block hidden" type="button">
+            <span>Reload tab</span>
+          </button>
+          <button id="btn-retry" class="btn btn-primary btn-block" type="button">
+            <span>Try again</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ─── COMPLETE STATE: Active Tabs Container ────────────────────────── -->
+      <section id="state-complete" class="state-complete-container hidden">
+
+        <!-- TAB 1: OVERVIEW -->
+        <div id="tab-overview" class="tab-content">
+
+          <!-- Scan complete summary + health -->
+          <div id="complete-card" class="flat-card complete-card">
+            <div class="complete-head">
+              <span class="complete-check" aria-hidden="true">✓</span>
+              <h2 class="complete-title" id="complete-title" tabindex="-1" data-i18n="scanComplete">Scan complete</h2>
+            </div>
+            <div class="complete-grid">
+              <div><div class="mini-label" data-i18n="totalMessages">Total messages</div><div class="mini-val" id="cc-total">0</div></div>
+              <div><div class="mini-label" data-i18n="dateRange">Date range</div><div class="mini-val sm" id="cc-range">-</div></div>
+            </div>
+            <div class="mini-label" data-i18n="participantsTitle">Participants</div>
+            <div id="cc-participants" class="participant-rows compact"></div>
+            <div id="cc-split" class="split-bar" aria-hidden="true"></div>
+
+            <div class="mini-label health-title" data-i18n="scanHealth">Scan health</div>
+            <ul id="health-list" class="health-list"></ul>
+
+            <div class="complete-actions">
+              <button id="btn-sum-docx" class="btn btn-primary btn-block" type="button"><span data-i18n="btnDownloadDocx">Download Word (.docx)</span></button>
+              <button id="btn-sum-txt" class="btn btn-outline btn-block" type="button"><span data-i18n="btnDownloadTxt">Download text (.txt)</span></button>
+              <button id="btn-sum-rescan" class="btn-text" type="button"><span data-i18n="btnRescan">Rescan</span></button>
+            </div>
+          </div>
+
+
+          <!-- Partial Scan Notice Banner (hidden by default) -->
+          <div id="partial-scan-banner" class="partial-scan-banner hidden">
+            <div class="partial-scan-text">
+              <span class="partial-scan-title">Scanned from loaded messages only. Older messages were not loaded.</span>
+              <span class="partial-scan-desc" id="partial-oldest-date">Starts from -</span>
+            </div>
+            <button id="btn-rescan-all" class="btn btn-outline btn-rescan-all" aria-label="Rescan all conversation history">
+              <span>Rescan all</span>
+            </button>
+          </div>
+
+          <!-- Sender Imbalance Warning Banner (shown if >95% attributed to one sender) -->
+          <div id="sender-warning-banner" class="partial-scan-banner hidden" style="border-left: 3px solid #F2994A; background: rgba(242, 153, 74, 0.1);">
+            <div class="partial-scan-text">
+              <span class="partial-scan-title" style="color: #F2994A;">Sender imbalance warning</span>
+              <span class="partial-scan-desc" id="sender-warning-desc">Over 95% of messages were attributed to one sender.</span>
+            </div>
+          </div>
+
+          <!-- Highlight Card -->
+          <div class="highlight-card">
+            <div class="highlight-left">
+              <span class="highlight-label">Total messages</span>
+              <div class="highlight-number" id="hl-total-messages">0</div>
+              <div class="highlight-delta">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                  <polyline points="17 6 23 6 23 12"></polyline>
+                </svg>
+                <span id="hl-delta-week">+0 recent</span>
+              </div>
+            </div>
+
+            <!-- Plain Inline SVG Gold Line Chart -->
+            <div class="highlight-chart-box" id="hl-line-chart-box">
+              <svg id="hl-line-chart-svg" width="140" height="50" viewBox="0 0 140 50">
+                <path d="M 5 40 Q 30 15, 55 35 T 105 10 T 135 20" fill="none" stroke="#F2C94C" stroke-width="2.5" stroke-linecap="round" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Two Small Cards in a Row (Participants & Date Range) -->
+          <div class="overview-grid-2">
+            <!-- Card 1: Participants -->
+            <div class="flat-card overview-grid-card">
+              <div class="icon-tile">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <div style="overflow:hidden;">
+                <div class="card-title-sm">Participants</div>
+                <div class="card-val-sm" id="card-participants-count">0</div>
+                <div class="card-sub-sm">Active senders</div>
+              </div>
+            </div>
+
+            <!-- Card 2: Date Range -->
+            <div class="flat-card overview-grid-card">
+              <div class="icon-tile">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                </svg>
+              </div>
+              <div style="overflow:hidden;">
+                <div class="card-title-sm">Date range</div>
+                <div class="card-val-sm" id="card-days-span">0 days</div>
+                <div class="card-sub-sm" id="card-date-range">-</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table Card: Monthly Activity Breakdown -->
+          <div class="flat-card">
+            <div class="card-title-sm">Activity breakdown</div>
+            <table class="flat-table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Messages</th>
+                  <th>Share</th>
+                  <th>Change</th>
+                </tr>
+              </thead>
+              <tbody id="activity-table-body">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Weekday Chart Card -->
+          <div class="flat-card">
+            <div class="card-title-sm">Messages by weekday</div>
+            <div class="weekday-chart" id="weekday-chart-container">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- TAB 2: PARTICIPANTS -->
+        <div id="tab-participants" class="tab-content hidden">
+          <div class="flat-card">
+            <div class="card-title-sm" data-i18n="participantsTitle">Participants</div>
+            <div id="tab-participants-list" class="participant-rows"></div>
+
+            <!-- Direction check status -->
+            <div id="direction-status" class="direction-status ok" role="status">
+              <span id="direction-status-icon" class="dir-icon" aria-hidden="true">✓</span>
+              <span id="direction-status-text" class="dir-text">Direction check passed</span>
+              <button id="btn-confirm-who" class="btn btn-outline btn-xs hidden" type="button"><span data-i18n="btnConfirmWho">Confirm who is who</span></button>
+            </div>
+            <div class="dir-actions">
+              <button id="btn-swap-participants" class="btn btn-outline btn-block" type="button"><span data-i18n="btnSwapSides">Swap sides</span></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: EXPORT -->
+        <div id="tab-export" class="tab-content hidden">
+          <div class="flat-card" style="display:flex; flex-direction:column; gap:10px;">
+            <div class="card-title-sm" data-i18n="exportTitle">Export conversation</div>
+
+            <!-- Segmented Control -->
+            <div class="segmented-control">
+              <button id="seg-all" class="segmented-btn active">All messages</button>
+              <button id="seg-filter" class="segmented-btn">Date filter</button>
+            </div>
+
+            <!-- Date Range Filter Box -->
+            <div id="export-date-box" style="display:none; flex-direction:column; gap:8px;">
+              <div style="display:flex; gap:8px;">
+                <div class="flat-input-group" style="flex:1;">
+                  <span class="input-label">Start date</span>
+                  <input type="date" id="exp-from-date" class="flat-input" />
+                </div>
+                <div class="flat-input-group" style="flex:1;">
+                  <span class="input-label">End date</span>
+                  <input type="date" id="exp-to-date" class="flat-input" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Layout, Date/Time, Page/Font/Color -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div class="flat-input-group">
+                <span class="input-label" data-i18n="exportLayout">Layout</span>
+                <select id="exp-layout" class="flat-input">
+                  <option value="bubbles" data-i18n="layoutBubbles">Chat bubbles</option>
+                  <option value="compact" data-i18n="layoutCompact">Compact transcript</option>
+                  <option value="plain" data-i18n="layoutPlain">Plain text</option>
+                </select>
+              </div>
+              <div class="flat-input-group">
+                <span class="input-label" data-i18n="exportColorMode">Color mode</span>
+                <select id="exp-color-mode" class="flat-input">
+                  <option value="color" data-i18n="colorModeColor">Color</option>
+                  <option value="bw" data-i18n="colorModeBw">Black & White</option>
+                </select>
+              </div>
+              <div class="flat-input-group">
+                <span class="input-label" data-i18n="exportDateFormat">Date format</span>
+                <select id="exp-date-format" class="flat-input">
+                  <option value="auto">Auto (Locale)</option>
+                  <option value="DMY">DD/MM/YYYY</option>
+                  <option value="MDY">MM/DD/YYYY</option>
+                  <option value="YMD">YYYY-MM-DD</option>
+                </select>
+              </div>
+              <div class="flat-input-group">
+                <span class="input-label" data-i18n="exportTimeFormat">Time format</span>
+                <select id="exp-time-format" class="flat-input">
+                  <option value="auto">Auto (Locale)</option>
+                  <option value="12h">12-hour</option>
+                  <option value="24h">24-hour</option>
+                </select>
+              </div>
+              <div class="flat-input-group">
+                <span class="input-label" data-i18n="exportPageSize">Page size</span>
+                <select id="exp-page-size" class="flat-input">
+                  <option value="A4">A4</option>
+                  <option value="Letter">Letter</option>
+                </select>
+              </div>
+              <div class="flat-input-group">
+                <span class="input-label" data-i18n="exportFontSize">Font size</span>
+                <select id="exp-font-size" class="flat-input">
+                  <option value="S">Small</option>
+                  <option value="M" selected>Medium</option>
+                  <option value="L">Large</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- My Name & Rename Participants -->
+            <div class="flat-input-group">
+              <span class="input-label" data-i18n="myNameLabel">My name in exports</span>
+              <input type="text" id="exp-my-name" class="flat-input" placeholder="Detected name (e.g. S.I.MiHAN)" />
+            </div>
+
+            <details style="font-size:12px;">
+              <summary style="cursor:pointer; color:var(--text-secondary); font-weight:600;" data-i18n="renameParticipants">Rename participants</summary>
+              <div id="exp-rename-list" style="display:flex; flex-direction:column; gap:6px; margin-top:8px;"></div>
+            </details>
+
+            <!-- Toggles -->
+            <div style="display:flex; flex-direction:column; gap:2px; border-top:1px solid var(--border); padding-top:6px;">
+              <label class="toggle-wrapper" style="padding:3px 0;">
+                <div class="toggle-text"><span class="toggle-title">Include summary page</span></div>
+                <div class="flat-toggle"><input type="checkbox" id="exp-summary" checked /><span class="toggle-slider"></span></div>
+              </label>
+              <label class="toggle-wrapper" style="padding:3px 0;">
+                <div class="toggle-text"><span class="toggle-title">Include timestamps</span></div>
+                <div class="flat-toggle"><input type="checkbox" id="exp-timestamps" checked /><span class="toggle-slider"></span></div>
+              </label>
+              <label class="toggle-wrapper" style="padding:3px 0;">
+                <div class="toggle-text"><span class="toggle-title">Group messages by sender</span></div>
+                <div class="flat-toggle"><input type="checkbox" id="exp-group-sender" checked /><span class="toggle-slider"></span></div>
+              </label>
+              <label class="toggle-wrapper" style="padding:3px 0;">
+                <div class="toggle-text"><span class="toggle-title">Show reactions</span></div>
+                <div class="flat-toggle"><input type="checkbox" id="exp-reactions" checked /><span class="toggle-slider"></span></div>
+              </label>
+              <label class="toggle-wrapper" style="padding:3px 0;">
+                <div class="toggle-text"><span class="toggle-title">Show media labels</span></div>
+                <div class="flat-toggle"><input type="checkbox" id="exp-media-labels" checked /><span class="toggle-slider"></span></div>
+              </label>
+              <label class="toggle-wrapper" style="padding:3px 0;">
+                <div class="toggle-text"><span class="toggle-title">Show system messages</span></div>
+                <div class="flat-toggle"><input type="checkbox" id="exp-system-messages" checked /><span class="toggle-slider"></span></div>
+              </label>
+              <label class="toggle-wrapper" style="padding:3px 0;">
+                <div class="toggle-text"><span class="toggle-title">Hide quoted replies</span></div>
+                <div class="flat-toggle"><input type="checkbox" id="exp-hide-quotes" /><span class="toggle-slider"></span></div>
+              </label>
+            </div>
+
+            <!-- Live Mini Preview (first 5 blocks) -->
+            <div style="border-top:1px solid var(--border); padding-top:8px;">
+              <div class="input-label" style="margin-bottom:6px;" data-i18n="previewTitle">Live preview (first 5 blocks)</div>
+              <div id="exp-live-preview" style="background:var(--surface-inner); border:1px solid var(--border); border-radius:8px; padding:8px; max-height:190px; overflow-y:auto; font-size:11px; line-height:1.4;">
+                Scan a chat to preview the export layout.
+              </div>
+            </div>
+
+            <!-- Export Buttons Stack -->
+            <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+              <button id="btn-export-docx" class="btn btn-primary btn-block">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span data-i18n="btnDownloadDocx">Download Word (.docx)</span>
+              </button>
+
+              <button id="btn-export-pdf" class="btn btn-outline btn-block">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                  <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+                <span data-i18n="btnDownloadPdf">Export PDF</span>
+              </button>
+
+              <button id="btn-export-txt" class="btn btn-outline btn-block">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <span data-i18n="btnDownloadTxt">Download text (.txt)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: SETTINGS -->
+        <div id="tab-settings" class="tab-content hidden">
+          <div class="flat-card">
+            <div class="card-title-sm">Settings & About</div>
+            <div class="settings-list">
+              <div class="settings-row">
+                <span class="settings-label">Theme</span>
+                <div class="theme-switch-group">
+                  <button id="theme-dark-btn" class="theme-btn active">Dark</button>
+                  <button id="theme-light-btn" class="theme-btn">Light</button>
+                </div>
+              </div>
+              <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:4px; padding:6px 0;">
+                <span class="settings-label" data-i18n="myNameLabel">My name in exports</span>
+                <input type="text" id="setting-my-name" class="flat-input" placeholder="Auto-detected" />
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">Extension version</span>
+                <span class="settings-val">v2.4.0</span>
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">Developer</span>
+                <span class="settings-val" style="color:var(--primary-green); font-weight:600;">S.I.Mihan</span>
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">Privacy</span>
+                <span class="settings-val">100% Client-Side</span>
+              </div>
+              <div class="settings-row" style="padding: 6px 0;">
+                <div class="toggle-text" style="flex:1;">
+                  <span class="settings-label" style="display:block;">Debug Logging</span>
+                  <span class="settings-desc-note" style="display:block; padding:0; margin-top:2px;">Log phase changes & diagnostics</span>
+                </div>
+                <div class="flat-toggle">
+                  <input type="checkbox" id="setting-debug-mode" />
+                  <span class="toggle-slider"></span>
+                </div>
+              </div>
+              <div class="settings-row" style="padding: 6px 0;">
+                <div class="toggle-text" style="flex:1;">
+                  <span class="settings-label" style="display:block;" data-i18n="autoStartLabel">Start reading automatically when the full history is loaded</span>
+                  <span class="settings-desc-note" style="display:block; padding:0; margin-top:2px;" data-i18n="autoStartNote">Only starts when the true beginning of the chat was reached.</span>
+                </div>
+                <div class="flat-toggle">
+                  <input type="checkbox" id="setting-auto-start" />
+                  <span class="toggle-slider"></span>
+                </div>
+              </div>
+              <div class="settings-row" style="padding: 6px 0;">
+                <span class="settings-label" data-i18n="btnSwapSides">Swap sides</span>
+                <button id="btn-swap-settings" class="btn btn-outline btn-xs" type="button"><span data-i18n="btnSwapSides">Swap sides</span></button>
+              </div>
+              <div class="settings-row" style="padding: 6px 0;">
+                <div class="toggle-text" style="flex:1;">
+                  <span class="settings-label" style="display:block;" data-i18n="tipResetLabel">Show helpful tips</span>
+                </div>
+                <button id="btn-tips-reset" class="btn btn-outline btn-xs" type="button"><span data-i18n="tipResetBtn">Show tips again</span></button>
+              </div>
+              <div class="settings-row" style="border:none; padding-top:4px;">
+                <span class="settings-desc-note" data-i18n="privacyNotice">All processing is local. Nothing leaves your device. Zero analytics.</span>
+              </div>
+            </div>
+
+            <!-- Report a Problem (copies anonymized diagnostics with NO message content) -->
+            <div style="margin-top: 10px;">
+              <button id="btn-report-problem" class="btn btn-outline btn-block" style="font-size:12px;">
+                <span data-i18n="reportProblem">Report a problem (Copy Diagnostics)</span>
+              </button>
+            </div>
+
+            <!-- Diagnostics: technical logs live here, not in the main UI -->
+            <div class="card-title-sm" style="margin-top:14px;" data-i18n="diagnosticsTitle">Diagnostics</div>
+            <pre id="diag-direction-log" class="diag-log" tabindex="0">No scan yet.</pre>
+
+            <!-- Scan Integrity & Verification Card -->
+            <div id="integrity-card" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="settings-label" style="font-weight: 600;">Scan Integrity</span>
+                <button id="btn-verify-scan" class="btn btn-outline" style="padding: 3px 10px; font-size: 11px; height: 26px;">
+                  <span>Verify Scan</span>
+                </button>
+              </div>
+              <div class="settings-list" style="font-size: 11px; margin-bottom: 8px;">
+                <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Messages Captured</span>
+                  <span id="int-total-msgs" class="settings-val">0</span>
+                </div>
+                <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Overlap Verifications</span>
+                  <span id="int-overlap-merges" class="settings-val">0</span>
+                </div>
+                <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Scroll Gaps (No-overlap)</span>
+                  <span id="int-no-overlap" class="settings-val">0</span>
+                </div>
+                <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Rejected Separators</span>
+                  <span id="int-rejected-seps" class="settings-val">0</span>
+                </div>
+              </div>
+              <div id="verify-scan-result" class="settings-desc-note" style="font-family: monospace; font-size: 11px; line-height: 1.5; background: var(--surface-inner); border-radius: 8px; padding: 8px 10px; min-height: 32px;">
+                Run a scan to view integrity details, or click "Verify Scan" to sample against visible chat.
+              </div>
+            </div>
+
+            <!-- Selector Health Check Card -->
+            <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="settings-label" style="font-weight: 600;">Selector Diagnostics</span>
+                <button id="btn-run-healthcheck" class="btn btn-outline" style="padding: 3px 10px; font-size: 11px; height: 26px;">
+                  <span>Run Check</span>
+                </button>
+              </div>
+              <div id="healthcheck-container" class="settings-desc-note" style="font-family: monospace; font-size: 11px; line-height: 1.5; background: var(--surface-inner); border-radius: 8px; padding: 8px 10px; min-height: 48px;">
+                Click "Run Check" to test active chat selectors.
+              </div>
+            </div>
+
+            <button id="btn-settings-clear" class="btn btn-outline btn-block" style="color:var(--negative); border-color:rgba(239,83,80,0.3); margin-top:12px;">
+              <span>Clear session data</span>
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- App Footer Credit -->
+    <footer class="app-footer">
+      <span>Nothing leaves your device &middot; Made by <strong>S.I.Mihan</strong></span>
+    </footer>
+
+  </div>
+
+  <!-- ─── Flat Toast Notification ───────────────────────────────────────────── -->
+  <div id="toast" class="flat-toast" role="status" aria-live="polite">
+    <div class="toast-body">
+      <svg class="toast-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      <span id="toast-text">Saved to Downloads</span>
+    </div>
+    <button id="toast-close" class="toast-close" aria-label="Dismiss">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ─── Confirm who is who ─────────────────────────────────────────────── -->
+  <div id="direction-backdrop" class="popover-backdrop" role="dialog" aria-modal="true" aria-labelledby="dir-dialog-title">
+    <div class="popover-box dir-dialog">
+      <div id="dir-dialog-title" class="popover-title" data-i18n="confirmTitle">Confirm who is who</div>
+      <div class="popover-desc" data-i18n="confirmDesc">I couldn't tell for sure which messages are yours. Which side is you?</div>
+      <div class="dir-columns">
+        <div class="dir-col" id="dir-col-left">
+          <div class="dir-col-title" data-i18n="leftSide">Left side</div>
+          <div id="dir-samples-left" class="dir-samples"></div>
+        </div>
+        <div class="dir-col" id="dir-col-right">
+          <div class="dir-col-title" data-i18n="rightSide">Right side</div>
+          <div id="dir-samples-right" class="dir-samples"></div>
+        </div>
+      </div>
+      <div class="dir-buttons">
+        <button id="btn-left-is-me" class="btn btn-primary" type="button"><span data-i18n="btnLeftIsMe">Left side is me</span></button>
+        <button id="btn-right-is-me" class="btn btn-primary" type="button"><span data-i18n="btnRightIsMe">Right side is me</span></button>
+      </div>
+      <div class="dir-buttons">
+        <button id="btn-dialog-swap" class="btn btn-outline" type="button"><span data-i18n="btnSwapSides">Swap sides</span></button>
+        <button id="btn-dialog-later" class="btn-text" type="button"><span data-i18n="btnLater">Decide later</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Confirm Popover ─────────────────────────────────────────────────── -->
+  <div id="popover-backdrop" class="popover-backdrop" role="dialog" aria-modal="true">
+    <div class="popover-box">
+      <div class="popover-title">Clear data?</div>
+      <div class="popover-desc">This erases the current scan from memory. Your chats remain untouched.</div>
+      <div class="popover-actions">
+        <button id="popover-cancel" class="btn btn-outline" style="flex:1;">Cancel</button>
+        <button id="popover-confirm" class="btn btn-danger" style="flex:1;">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor docx & Main script -->
+  <script src="../lib/vendor/docx.min.js"></script>
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

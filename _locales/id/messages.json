@@ -1,0 +1,179 @@
+{
+  "extName": {
+    "message": "ChatFlow"
+  },
+  "extDesc": {
+    "message": "Pindai obrolan WhatsApp dan Messenger lalu ekspor sebagai file Word, PDF, atau teks."
+  },
+  "navOverview": {
+    "message": "Ringkasan"
+  },
+  "navParticipants": {
+    "message": "Peserta"
+  },
+  "navExport": {
+    "message": "Ekspor"
+  },
+  "navSettings": {
+    "message": "Pengaturan"
+  },
+  "btnScan": {
+    "message": "Pindai obrolan ini"
+  },
+  "btnCancel": {
+    "message": "Batal"
+  },
+  "btnScanFromHere": {
+    "message": "Pindai dari sini"
+  },
+  "exportTitle": {
+    "message": "Ekspor percakapan"
+  },
+  "exportLayout": {
+    "message": "Tata letak"
+  },
+  "layoutBubbles": {
+    "message": "Gelembung obrolan"
+  },
+  "layoutCompact": {
+    "message": "Transkrip ringkas"
+  },
+  "layoutPlain": {
+    "message": "Teks biasa"
+  },
+  "exportDateFormat": {
+    "message": "Format tanggal"
+  },
+  "exportTimeFormat": {
+    "message": "Format waktu"
+  },
+  "exportPageSize": {
+    "message": "Ukuran halaman"
+  },
+  "exportFontSize": {
+    "message": "Ukuran font"
+  },
+  "exportColorMode": {
+    "message": "Mode warna"
+  },
+  "colorModeColor": {
+    "message": "Berwarna"
+  },
+  "colorModeBw": {
+    "message": "Hitam & Putih"
+  },
+  "myNameLabel": {
+    "message": "Nama saya di ekspor"
+  },
+  "renameParticipants": {
+    "message": "Ubah nama peserta"
+  },
+  "previewTitle": {
+    "message": "Pratinjau langsung (5 blok pertama)"
+  },
+  "btnDownloadDocx": {
+    "message": "Unduh Word (.docx)"
+  },
+  "btnDownloadPdf": {
+    "message": "Ekspor PDF"
+  },
+  "btnDownloadTxt": {
+    "message": "Unduh teks (.txt)"
+  },
+  "privacyNotice": {
+    "message": "Semua pemrosesan lokal. Tidak ada data yang keluar dari perangkat Anda."
+  },
+  "reportProblem": {
+    "message": "Laporkan masalah"
+  },
+  "stepLoad": {
+    "message": "Load history"
+  },
+  "stepRead": {
+    "message": "Read messages"
+  },
+  "stepPrepare": {
+    "message": "Prepare export"
+  },
+  "stallHint": {
+    "message": "Older messages aren't loading right now. You can stop here and start the scan, or scroll up in the chat to load more."
+  },
+  "btnStopLoading": {
+    "message": "Stop loading"
+  },
+  "btnStartScan": {
+    "message": "Start scan"
+  },
+  "btnLoadMore": {
+    "message": "Load more history"
+  },
+  "tipNever": {
+    "message": "Don't show again"
+  },
+  "liveDirectionNote": {
+    "message": "Double-checking who sent what..."
+  },
+  "preparingLine": {
+    "message": "Checking everything and building your summary..."
+  },
+  "participantsTitle": {
+    "message": "Participants"
+  },
+  "btnConfirmWho": {
+    "message": "Confirm who is who"
+  },
+  "btnSwapSides": {
+    "message": "Swap sides"
+  },
+  "scanComplete": {
+    "message": "Scan complete"
+  },
+  "totalMessages": {
+    "message": "Total messages"
+  },
+  "dateRange": {
+    "message": "Date range"
+  },
+  "scanHealth": {
+    "message": "Scan health"
+  },
+  "btnRescan": {
+    "message": "Rescan"
+  },
+  "confirmTitle": {
+    "message": "Confirm who is who"
+  },
+  "confirmDesc": {
+    "message": "I couldn't tell for sure which messages are yours. Which side is you?"
+  },
+  "leftSide": {
+    "message": "Left side"
+  },
+  "rightSide": {
+    "message": "Right side"
+  },
+  "btnLeftIsMe": {
+    "message": "Left side is me"
+  },
+  "btnRightIsMe": {
+    "message": "Right side is me"
+  },
+  "btnLater": {
+    "message": "Decide later"
+  },
+  "autoStartLabel": {
+    "message": "Start reading automatically when the full history is loaded"
+  },
+  "autoStartNote": {
+    "message": "Only starts when the true beginning of the chat was reached."
+  },
+  "tipResetLabel": {
+    "message": "Show helpful tips"
+  },
+  "tipResetBtn": {
+    "message": "Show tips again"
+  },
+  "diagnosticsTitle": {
+    "message": "Diagnostics"
+  }
+}

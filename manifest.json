@@ -1,0 +1,74 @@
+{
+  "manifest_version": 3,
+  "default_locale": "en",
+  "name": "__MSG_extName__",
+  "version": "2.4.0",
+  "description": "__MSG_extDesc__",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "tabs",
+    "storage",
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://www.messenger.com/*",
+    "https://www.facebook.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://web.whatsapp.com/*",
+        "https://www.messenger.com/*",
+        "https://www.facebook.com/messages/*",
+        "https://www.facebook.com/messages"
+      ],
+      "js": ["content/content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
+  "action": {
+    "default_title": "ChatFlow - Chat to document",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/vendor/docx.min.js",
+        "content/adapters/base.js",
+        "content/adapters/whatsapp.js",
+        "content/adapters/messenger.js",
+        "content/adapters/index.js",
+        "content/scanner.js",
+        "content/direction.js",
+        "content/selectors.js",
+        "lib/transcript.js"
+      ],
+      "matches": [
+        "https://web.whatsapp.com/*",
+        "https://www.messenger.com/*",
+        "https://www.facebook.com/*"
+      ]
+    }
+  ]
+}

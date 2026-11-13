@@ -1,0 +1,179 @@
+{
+  "extName": {
+    "message": "ChatFlow"
+  },
+  "extDesc": {
+    "message": "امسح محادثات واتساب وماسنجر وصدّرها كملفات Word أو PDF أو نص."
+  },
+  "navOverview": {
+    "message": "نظرة عامة"
+  },
+  "navParticipants": {
+    "message": "المشاركون"
+  },
+  "navExport": {
+    "message": "تصدير"
+  },
+  "navSettings": {
+    "message": "الإعدادات"
+  },
+  "btnScan": {
+    "message": "مسح هذه المحادثة"
+  },
+  "btnCancel": {
+    "message": "إلغاء"
+  },
+  "btnScanFromHere": {
+    "message": "المسح من هنا"
+  },
+  "exportTitle": {
+    "message": "تصدير المحادثة"
+  },
+  "exportLayout": {
+    "message": "التخطيط"
+  },
+  "layoutBubbles": {
+    "message": "فقاعات الدردشة"
+  },
+  "layoutCompact": {
+    "message": "نص مضغوط"
+  },
+  "layoutPlain": {
+    "message": "نص عادي"
+  },
+  "exportDateFormat": {
+    "message": "تنسيق التاريخ"
+  },
+  "exportTimeFormat": {
+    "message": "تنسيق الوقت"
+  },
+  "exportPageSize": {
+    "message": "حجم الصفحة"
+  },
+  "exportFontSize": {
+    "message": "حجم الخط"
+  },
+  "exportColorMode": {
+    "message": "وضع الألوان"
+  },
+  "colorModeColor": {
+    "message": "ملون"
+  },
+  "colorModeBw": {
+    "message": "أبيض وأسود"
+  },
+  "myNameLabel": {
+    "message": "اسمي في التصدير"
+  },
+  "renameParticipants": {
+    "message": "إعادة تسمية المشاركين"
+  },
+  "previewTitle": {
+    "message": "معاينة مباشرة (أول 5 مجموعات)"
+  },
+  "btnDownloadDocx": {
+    "message": "تنزيل Word (.docx)"
+  },
+  "btnDownloadPdf": {
+    "message": "تصدير PDF"
+  },
+  "btnDownloadTxt": {
+    "message": "تنزيل نص (.txt)"
+  },
+  "privacyNotice": {
+    "message": "تتم المعالجة محليًا بالكامل. لا يغادر أي شيء جهازك."
+  },
+  "reportProblem": {
+    "message": "الإبلاغ عن مشكلة"
+  },
+  "stepLoad": {
+    "message": "Load history"
+  },
+  "stepRead": {
+    "message": "Read messages"
+  },
+  "stepPrepare": {
+    "message": "Prepare export"
+  },
+  "stallHint": {
+    "message": "Older messages aren't loading right now. You can stop here and start the scan, or scroll up in the chat to load more."
+  },
+  "btnStopLoading": {
+    "message": "Stop loading"
+  },
+  "btnStartScan": {
+    "message": "Start scan"
+  },
+  "btnLoadMore": {
+    "message": "Load more history"
+  },
+  "tipNever": {
+    "message": "Don't show again"
+  },
+  "liveDirectionNote": {
+    "message": "Double-checking who sent what..."
+  },
+  "preparingLine": {
+    "message": "Checking everything and building your summary..."
+  },
+  "participantsTitle": {
+    "message": "Participants"
+  },
+  "btnConfirmWho": {
+    "message": "Confirm who is who"
+  },
+  "btnSwapSides": {
+    "message": "Swap sides"
+  },
+  "scanComplete": {
+    "message": "Scan complete"
+  },
+  "totalMessages": {
+    "message": "Total messages"
+  },
+  "dateRange": {
+    "message": "Date range"
+  },
+  "scanHealth": {
+    "message": "Scan health"
+  },
+  "btnRescan": {
+    "message": "Rescan"
+  },
+  "confirmTitle": {
+    "message": "Confirm who is who"
+  },
+  "confirmDesc": {
+    "message": "I couldn't tell for sure which messages are yours. Which side is you?"
+  },
+  "leftSide": {
+    "message": "Left side"
+  },
+  "rightSide": {
+    "message": "Right side"
+  },
+  "btnLeftIsMe": {
+    "message": "Left side is me"
+  },
+  "btnRightIsMe": {
+    "message": "Right side is me"
+  },
+  "btnLater": {
+    "message": "Decide later"
+  },
+  "autoStartLabel": {
+    "message": "Start reading automatically when the full history is loaded"
+  },
+  "autoStartNote": {
+    "message": "Only starts when the true beginning of the chat was reached."
+  },
+  "tipResetLabel": {
+    "message": "Show helpful tips"
+  },
+  "tipResetBtn": {
+    "message": "Show tips again"
+  },
+  "diagnosticsTitle": {
+    "message": "Diagnostics"
+  }
+}

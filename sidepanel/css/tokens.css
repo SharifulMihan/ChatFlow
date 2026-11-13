@@ -1,0 +1,182 @@
+/* tokens.css — ChatFlow Flat Design Tokens (Multi-Platform Theme: WhatsApp Green & Messenger Blue) */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/Inter-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/Inter-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/Inter-SemiBold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/Inter-Bold.woff2') format('woff2');
+}
+
+:root {
+  /* Typography with local Inter + Bengali fallback */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Bengali', Roboto, sans-serif;
+
+  /* Color Palette — Flat Dark Backgrounds (Constant across platforms) */
+  --bg-page: #1B1D2A;
+  --bg-rail: #161824;
+  --bg-card: #262839;
+  --bg-inner: #2F3247;
+  --bg-nav-active: #34384F;
+
+  /* Default Platform Accents (WhatsApp Green default) */
+  --primary: #2DB87A;
+  --primary-hover: #27A56D;
+  --primary-dark: #208B5B;
+  --bg-card-highlight: #1F6F4F;
+  --chart-accent: #F2C94C;
+  --text-on-primary: #FFFFFF;
+
+  /* Backwards compatibility aliases */
+  --primary-green: var(--primary);
+  --primary-green-hover: var(--primary-hover);
+  --text-on-green: var(--text-on-primary);
+
+  /* Status Accents */
+  --accent-yellow: #F2C94C;
+  --positive: #3DDC84;
+  --negative: #EF5350;
+
+  /* Text Colors */
+  --text-primary: #E8EAF2;
+  --text-secondary: #9A9FB5;
+  --text-muted: #6C718A;
+
+  /* Dividers & Borders */
+  --border-card: transparent;
+  --border-divider: #202232;
+  --border-inner: #34384F;
+
+  /* Radii */
+  --radius-card: 14px;
+  --radius-btn: 10px;
+  --radius-input: 10px;
+  --radius-sm: 8px;
+  --radius-full: 9999px;
+
+  /* Shadows — minimal, soft */
+  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.2);
+  --shadow-none: none;
+
+  /* Transitions */
+  --transition-default: 150ms ease-out;
+  --transition-theme: 200ms ease-out;
+}
+
+/* ─── Platform Accent Themes ─────────────────────────────────────────────────── */
+
+/* 1. WhatsApp Green Theme */
+:root[data-platform="whatsapp"],
+[data-platform="whatsapp"] {
+  --primary: #2DB87A;
+  --primary-hover: #27A56D;
+  --primary-dark: #208B5B;
+  --bg-card-highlight: #1F6F4F;
+  --chart-accent: #F2C94C;
+  --text-on-primary: #FFFFFF;
+}
+
+/* 2. Messenger Blue Theme */
+:root[data-platform="messenger"],
+[data-platform="messenger"] {
+  --primary: #2F80ED;
+  --primary-hover: #2570D6;
+  --primary-dark: #1A5BB5;
+  --bg-card-highlight: #1B4A8F;
+  --chart-accent: #F2C94C;
+  --text-on-primary: #FFFFFF;
+}
+
+/* 3. Neutral Gray-Green Theme (Unsupported sites) */
+:root[data-platform="neutral"],
+[data-platform="neutral"] {
+  --primary: #4E7D6B;
+  --primary-hover: #3E6958;
+  --primary-dark: #2A4F41;
+  --bg-card-highlight: #2A3E37;
+  --chart-accent: #F2C94C;
+  --text-on-primary: #FFFFFF;
+}
+
+/* ─── Light Mode Theme ──────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-page: #F3F4F8;
+  --bg-rail: #E5E7F0;
+  --bg-card: #FFFFFF;
+  --bg-inner: #EDEFF5;
+  --bg-nav-active: #D9DCE8;
+
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-muted: #6B7280;
+
+  --border-card: transparent;
+  --border-divider: #E2E4EC;
+  --border-inner: #D1D5DB;
+
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"][data-platform="whatsapp"],
+[data-theme="light"] [data-platform="whatsapp"] {
+  --bg-card-highlight: #1F6F4F;
+}
+
+[data-theme="light"][data-platform="messenger"],
+[data-theme="light"] [data-platform="messenger"] {
+  --bg-card-highlight: #1B4A8F;
+}
+
+/* ─── Smooth Theme Transition & Motion Preference ────────────────────────────── */
+.btn-primary,
+.highlight-card,
+.rail-btn,
+.avatar-tile,
+.icon-tile,
+.segmented-btn,
+.flat-toggle .toggle-slider,
+.flat-progress-bar,
+.weekday-bar,
+.platform-badge,
+.flat-toast,
+.rail-logo-box svg,
+.rail-logo-box svg rect,
+.rail-logo-box svg path,
+.scan-counter-val,
+.partial-scan-banner {
+  transition: background-color var(--transition-theme),
+              color var(--transition-theme),
+              border-color var(--transition-theme),
+              fill var(--transition-theme);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none">
+  <!-- Back Speech Bubble -->
+  <path d="M26 30h42a10 10 0 0 1 10 10v16a10 10 0 0 1-10 10H46l-14 11v-11h-6a10 10 0 0 1-10-10V40a10 10 0 0 1 10-10Z" fill="#FFFFFF" fill-opacity="0.6" />
+
+  <!-- Front Document Bubble -->
+  <path d="M52 44h40a10 10 0 0 1 10 10v30l-16 16H52a10 10 0 0 1-10-10V54a10 10 0 0 1 10-10Z" fill="#FFFFFF" />
+  <path d="M42 82l-14 10 4-10h10Z" fill="#FFFFFF" />
+  <path d="M86 100v-10a6 6 0 0 1 6-6h10L86 100Z" fill="#CCCCCC" />
+
+  <!-- Inner Lines -->
+  <rect x="54" y="56" width="34" height="4" rx="2" fill="#1B1D2A" />
+  <rect x="54" y="65" width="24" height="4" rx="2" fill="#1B1D2A" />
+  <rect x="54" y="74" width="28" height="4" rx="2" fill="#1B1D2A" />
+</svg>

@@ -1,0 +1,179 @@
+{
+  "extName": {
+    "message": "ChatFlow"
+  },
+  "extDesc": {
+    "message": "হোয়াটসঅ্যাপ এবং মেসেঞ্জার চ্যাট স্ক্যান করে Word, PDF বা টেক্সট ফাইলে এক্সপোর্ট করুন।"
+  },
+  "navOverview": {
+    "message": "সারসংক্ষেপ"
+  },
+  "navParticipants": {
+    "message": "অংশগ্রহণকারী"
+  },
+  "navExport": {
+    "message": "এক্সপোর্ট"
+  },
+  "navSettings": {
+    "message": "সেটিংস"
+  },
+  "btnScan": {
+    "message": "এই চ্যাট স্ক্যান করুন"
+  },
+  "btnCancel": {
+    "message": "বাতিল"
+  },
+  "btnScanFromHere": {
+    "message": "এখান থেকে স্ক্যান"
+  },
+  "exportTitle": {
+    "message": "কথোপকথন এক্সপোর্ট"
+  },
+  "exportLayout": {
+    "message": "লেআউট"
+  },
+  "layoutBubbles": {
+    "message": "চ্যাট বাবল"
+  },
+  "layoutCompact": {
+    "message": "সংক্ষিপ্ত ট্রান্সক্রিপ্ট"
+  },
+  "layoutPlain": {
+    "message": "সাধারণ টেক্সট"
+  },
+  "exportDateFormat": {
+    "message": "তারিখের ধরন"
+  },
+  "exportTimeFormat": {
+    "message": "সময়ের ধরন"
+  },
+  "exportPageSize": {
+    "message": "পৃষ্ঠার মাপ"
+  },
+  "exportFontSize": {
+    "message": "ফন্টের আকার"
+  },
+  "exportColorMode": {
+    "message": "রঙের ধরন"
+  },
+  "colorModeColor": {
+    "message": "রঙিন"
+  },
+  "colorModeBw": {
+    "message": "সাদাকালো"
+  },
+  "myNameLabel": {
+    "message": "এক্সপোর্টে আমার নাম"
+  },
+  "renameParticipants": {
+    "message": "অংশগ্রহণকারীর নাম পরিবর্তন"
+  },
+  "previewTitle": {
+    "message": "লাইভ প্রিভিউ (প্রথম ৫টি ব্লক)"
+  },
+  "btnDownloadDocx": {
+    "message": "Word (.docx) ডাউনলোড"
+  },
+  "btnDownloadPdf": {
+    "message": "PDF এক্সপোর্ট"
+  },
+  "btnDownloadTxt": {
+    "message": "টেক্সট (.txt) ডাউনলোড"
+  },
+  "privacyNotice": {
+    "message": "সবকিছু আপনার ডিভাইসেই প্রসেস হয়। কোনো ডেটা বাইরে যায় না।"
+  },
+  "reportProblem": {
+    "message": "সমস্যা জানান"
+  },
+  "stepLoad": {
+    "message": "হিস্ট্রি লোড"
+  },
+  "stepRead": {
+    "message": "মেসেজ পড়া"
+  },
+  "stepPrepare": {
+    "message": "সারসংক্ষেপ তৈরি"
+  },
+  "stallHint": {
+    "message": "পুরানো মেসেজ এখন লোড হচ্ছে না। আপনি এখানে থেমে স্ক্যান শুরু করতে পারেন, অথবা চ্যাটে উপরে স্ক্রল করতে পারেন।"
+  },
+  "btnStopLoading": {
+    "message": "লোডিং থামান"
+  },
+  "btnStartScan": {
+    "message": "স্ক্যান শুরু করুন"
+  },
+  "btnLoadMore": {
+    "message": "আরও হিস্ট্রি লোড করুন"
+  },
+  "tipNever": {
+    "message": "আর দেখাবেন না"
+  },
+  "liveDirectionNote": {
+    "message": "কে কোন মেসেজ পাঠিয়েছে যাচাই করা হচ্ছে..."
+  },
+  "preparingLine": {
+    "message": "সবকিছু যাচাই করে সারসংক্ষেপ তৈরি করা হচ্ছে..."
+  },
+  "participantsTitle": {
+    "message": "অংশগ্রহণকারী"
+  },
+  "btnConfirmWho": {
+    "message": "কে কোন পাশে নিশ্চিত করুন"
+  },
+  "btnSwapSides": {
+    "message": "পাশ অদলবদল করুন"
+  },
+  "scanComplete": {
+    "message": "স্ক্যান সম্পন্ন"
+  },
+  "totalMessages": {
+    "message": "মোট মেসেজ"
+  },
+  "dateRange": {
+    "message": "তারিখের সীমা"
+  },
+  "scanHealth": {
+    "message": "স্ক্যান যাচাই"
+  },
+  "btnRescan": {
+    "message": "পুনরায় স্ক্যান"
+  },
+  "confirmTitle": {
+    "message": "কে কোন পাশে নিশ্চিত করুন"
+  },
+  "confirmDesc": {
+    "message": "কোন মেসেজগুলো আপনার তা নিশ্চিত হওয়া যায়নি। কোন পাশটি আপনার?"
+  },
+  "leftSide": {
+    "message": "বাম পাশ"
+  },
+  "rightSide": {
+    "message": "ডান পাশ"
+  },
+  "btnLeftIsMe": {
+    "message": "বাম পাশটি আমি"
+  },
+  "btnRightIsMe": {
+    "message": "ডান পাশটি আমি"
+  },
+  "btnLater": {
+    "message": "পরে ঠিক করব"
+  },
+  "autoStartLabel": {
+    "message": "সম্পূর্ণ হিস্ট্রি লোড হলে স্বয়ংক্রিয়ভাবে পড়া শুরু করুন"
+  },
+  "autoStartNote": {
+    "message": "শুধুমাত্র চ্যাটের একদম শুরুতে পৌঁছালে স্বয়ংক্রিয়ভাবে শুরু হবে।"
+  },
+  "tipResetLabel": {
+    "message": "সহায়ক টিপস দেখান"
+  },
+  "tipResetBtn": {
+    "message": "আবার টিপস দেখান"
+  },
+  "diagnosticsTitle": {
+    "message": "ডায়াগনস্টিকস"
+  }
+}
