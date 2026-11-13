@@ -1065,17 +1065,39 @@ function renderCompleteDashboard() {
     $('card-date-range').textContent = 'Recent';
   }
 
-  // Update Scan Integrity metrics & Diagnostics Log in Settings Tab
+  // Update Scan Integrity & Coverage Audit metrics in Settings Tab
   if (cachedStats.integrity) {
+    const audit = cachedStats.integrity.audit || {};
+    const intCand = $('int-candidates');
     const intTot = $('int-total-msgs');
+    const intSsn = $('int-sep-sys-noise');
+    const intUnr = $('int-unrecognized');
     const intMer = $('int-overlap-merges');
     const intGap = $('int-no-overlap');
+    const intDif = $('int-verify-diffs');
     const intRej = $('int-rejected-seps');
+
+    const unrecCount = audit.unrecognizedCount || 0;
+    const gapCount = audit.gapsCount ?? cachedStats.integrity.noOverlapEvents ?? 0;
+    const diffCount = audit.verificationDifferencesCount || 0;
+
+    if (intCand) intCand.textContent = (audit.candidateRowsSeen ?? total).toLocaleString();
     if (intTot) intTot.textContent = (cachedStats.integrity.totalCaptured || total).toLocaleString();
+    if (intSsn) {
+      intSsn.textContent = `${audit.separatorsCount || 0} / ${audit.systemRowsCount || 0} / ${audit.noiseRowsCount || 0}`;
+    }
+    if (intUnr) {
+      intUnr.textContent = unrecCount.toLocaleString();
+      intUnr.style.color = unrecCount > 0 ? '#f59e0b' : 'var(--text-primary)';
+    }
     if (intMer) intMer.textContent = (cachedStats.integrity.overlapMerges || 0).toLocaleString();
     if (intGap) {
-      intGap.textContent = (cachedStats.integrity.noOverlapEvents || 0).toLocaleString();
-      intGap.style.color = cachedStats.integrity.noOverlapEvents > 0 ? 'var(--negative)' : 'var(--text-primary)';
+      intGap.textContent = gapCount.toLocaleString();
+      intGap.style.color = gapCount > 0 ? 'var(--negative)' : 'var(--text-primary)';
+    }
+    if (intDif) {
+      intDif.textContent = diffCount.toLocaleString();
+      intDif.style.color = diffCount > 0 ? '#f59e0b' : 'var(--text-primary)';
     }
     if (intRej) intRej.textContent = (cachedStats.integrity.rejectedSeparatorsCount || 0).toLocaleString();
   }
@@ -1151,19 +1173,65 @@ function renderCompleteCard(messages, stats, checksIncompleteFlag = false) {
     }).join('');
   }
 
-  // Scan Health Checklist (4 items: Direction, Date, Completeness, Duplicate)
+  // Coverage Audit & Scan Health Checklist
+  const audit = stats.integrity?.audit || {};
+  const unrecCount = audit.unrecognizedCount || 0;
+  const gapCount = audit.gapsCount ?? stats.integrity?.noOverlapEventsCount ?? 0;
+  const diffCount = audit.verificationDifferencesCount || 0;
+  const recoveredCount = audit.verificationRecoveredCount || 0;
+  const sepCount = audit.separatorsCount || 0;
+  const sysCount = audit.systemRowsCount || 0;
+  const noiseCount = audit.noiseRowsCount || 0;
+  const candCount = audit.candidateRowsSeen ?? total;
+
+  if ($('cc-aud-candidates')) $('cc-aud-candidates').textContent = candCount.toLocaleString();
+  if ($('cc-aud-exported')) $('cc-aud-exported').textContent = total.toLocaleString();
+  if ($('cc-aud-nonmsg')) $('cc-aud-nonmsg').textContent = `${sepCount} / ${sysCount} / ${noiseCount}`;
+  if ($('cc-aud-unrec')) $('cc-aud-unrec').textContent = unrecCount.toLocaleString();
+  if ($('cc-aud-gaps')) $('cc-aud-gaps').textContent = gapCount.toLocaleString();
+  if ($('cc-aud-diffs')) $('cc-aud-diffs').textContent = diffCount.toLocaleString();
+
+  const dirLow = !!stats.integrity?.direction?.lowConfidence;
+  let checksFailed = !!(checksIncompleteFlag || stats.integrity?.checksIncomplete);
+  const hasIncompleteAudit = (unrecCount > 0 || gapCount > 0 || diffCount > 0 || dirLow || checksFailed);
+
+  const completeCard = $('complete-card');
+  const checkIcon = $('complete-check-icon');
+  const completeTitle = $('complete-title');
+  const incompleteBanner = $('cc-incomplete-banner');
+  const incompleteReason = $('cc-incomplete-reason');
+  const debugBar = $('cc-debug-bar');
+
+  if (completeCard) completeCard.classList.toggle('is-incomplete', hasIncompleteAudit);
+  if (checkIcon) checkIcon.textContent = hasIncompleteAudit ? '!' : '✓';
+  if (completeTitle) {
+    completeTitle.textContent = hasIncompleteAudit ? 'Scan may be incomplete' : 'Scan complete';
+  }
+  if (incompleteBanner) {
+    incompleteBanner.classList.toggle('hidden', !hasIncompleteAudit);
+  }
+  if (incompleteReason && hasIncompleteAudit) {
+    const reasons = [];
+    if (unrecCount > 0) reasons.push(`${unrecCount} unrecognized row(s)`);
+    if (gapCount > 0) reasons.push(`${gapCount} scroll gap(s)`);
+    if (diffCount > 0) reasons.push(`${diffCount} verification diff(s)`);
+    if (dirLow) reasons.push('low sender confidence');
+    if (checksFailed) reasons.push('incomplete diagnostics');
+    incompleteReason.textContent = `${reasons.join(', ')}. Copy the debug report or review Settings > Diagnostics.`;
+  }
+  if (debugBar) {
+    debugBar.classList.toggle('hidden', !hasIncompleteAudit);
+  }
+
   const healthList = $('health-list');
   if (!healthList) return;
 
   let items = [];
-  let checksFailed = !!(checksIncompleteFlag || stats.integrity?.checksIncomplete);
 
   try {
-    const dirLow = !!stats.integrity?.direction?.lowConfidence;
     const isPartial = !!stats.isPartial;
     const hasValidDates = !!(dStart && dEnd);
     const dupCount = stats.integrity?.duplicates || 0;
-    const gapCount = stats.integrity?.noOverlapEventsCount || 0;
 
     items = [
       {
@@ -1184,12 +1252,14 @@ function renderCompleteCard(messages, stats, checksIncompleteFlag = false) {
       },
       {
         ok: !isPartial && gapCount === 0,
-        title: !isPartial
+        title: !isPartial && gapCount === 0
           ? 'Full chat history reached'
-          : `Partial history (from ${dStart || 'loaded point'})`,
-        detail: !isPartial
-          ? 'The scanner verified the top of the conversation before reading downward.'
-          : 'Only messages loaded up to the starting point were included; Rescan to load older messages.'
+          : (gapCount > 0 ? `${gapCount} scroll gap(s) detected` : `Partial history (from ${dStart || 'loaded point'})`),
+        detail: !isPartial && gapCount === 0
+          ? 'The scanner verified the top of the conversation and every scroll overlap matched cleanly.'
+          : (gapCount > 0
+            ? 'One or more snapshots had no overlap even after backtracking. Copy the debug report or rescan.'
+            : 'Only messages loaded up to the starting point were included; Rescan to load older messages.')
       },
       {
         ok: dupCount === 0,
@@ -1197,6 +1267,21 @@ function renderCompleteCard(messages, stats, checksIncompleteFlag = false) {
         detail: 'Overlapping scroll snapshots were deduplicated using message IDs and content fingerprints.'
       }
     ];
+
+    if (unrecCount > 0) {
+      items.push({
+        ok: false,
+        title: `${unrecCount} unrecognized row(s) preserved`,
+        detail: 'Rows with unknown DOM structure were exported as "[Unrecognized message]" instead of being dropped. Copy debug report for trimmed HTML samples.'
+      });
+    }
+    if (diffCount > 0) {
+      items.push({
+        ok: false,
+        title: `Pass 2 found ${diffCount} difference(s) (${recoveredCount} recovered)`,
+        detail: 'The verification pass differed from Pass 1; missing rows were merged into the master list at their anchored positions.'
+      });
+    }
   } catch (err) {
     checksFailed = true;
     appendDiagnosticsWarning(`Scan health check error: ${err.message}`);
@@ -1245,7 +1330,20 @@ function renderDiagnosticsLog(integrity) {
   const el = $('diag-direction-log');
   if (!el) return;
   try {
-    el.textContent = formatDirectionDiagnostics(integrity);
+    let text = formatDirectionDiagnostics(integrity);
+    const audit = integrity?.audit;
+    if (audit) {
+      text += `\n\n--- Coverage Audit ---\n` +
+        `Candidates seen: ${audit.candidateRowsSeen ?? 0}\n` +
+        `Exported total: ${audit.finalTotal ?? audit.messagesExported ?? 0}\n` +
+        `Separators: ${audit.separatorsCount ?? 0}, System: ${audit.systemRowsCount ?? 0}, Reply labels: ${audit.replyLabelsCount ?? 0}, Noise: ${audit.noiseRowsCount ?? 0}\n` +
+        `Unrecognized: ${audit.unrecognizedCount ?? 0}\n` +
+        `Scroll gaps: ${audit.gapsCount ?? 0} (retries: ${audit.gapRetriesCount ?? 0})\n` +
+        `Verification diffs: ${audit.verificationDifferencesCount ?? 0} (recovered: ${audit.verificationRecoveredCount ?? 0}, ran: ${!!audit.verificationRan})\n` +
+        `Date order violations: ${(audit.dateOrderViolations || []).length}\n` +
+        `Audit status: ${audit.healthy ? 'HEALTHY' : 'INCOMPLETE / REVIEW RECOMMENDED'}`;
+    }
+    el.textContent = text;
   } catch (err) {
     el.textContent = `Diagnostics log error: ${err.message}`;
     if (cachedStats?.integrity) {
@@ -1812,35 +1910,86 @@ function handleExportTxt(skipConfidencePrompt = false) {
   }
 }
 
-async function handleReportProblem() {
+function buildDebugReport(includeSampleText = false) {
   const dir = cachedStats?.integrity?.direction || {};
-  const diag = {
+  const audit = cachedStats?.integrity?.audit || {};
+  const unrecSamples = (audit.unrecognizedSamples || []).map(s => ({
+    index: s.index,
+    scrollTop: s.scrollTop,
+    tag: s.tag,
+    role: s.role,
+    ariaLabel: s.ariaLabel,
+    ...(includeSampleText ? { textPreview: s.textPreview } : {}),
+    outerHTML: s.outerHTML
+  }));
+
+  const report = {
     extension: 'ChatFlow',
     version: chrome.runtime?.getManifest?.().version || '2.4.0',
     platform: cachedStats?.platform || currentPlatform,
     chatType: cachedStats?.integrity?.chatType || 'unknown',
-    totalMessages: cachedStats?.totalMessages || 0,
-    participants: Object.keys(cachedStats?.senderCounts || {}).length,
-    directionConfidence: dir.lowConfidence ? 'low' : 'high',
-    directionCombo: toList(dir.comboUsed),
-    directionAgreement: dir.agreement || {},
-    directionCounts: { me: dir.meCount ?? dir.counts?.me ?? 0, contact: dir.themCount ?? dir.counts?.contact ?? 0 },
+    counts: {
+      candidateRowsSeen: audit.candidateRowsSeen ?? 0,
+      messagesExported: audit.messagesExported ?? (cachedStats?.totalMessages || 0),
+      separatorsCount: audit.separatorsCount ?? 0,
+      systemRowsCount: audit.systemRowsCount ?? 0,
+      replyLabelsCount: audit.replyLabelsCount ?? 0,
+      noiseRowsCount: audit.noiseRowsCount ?? 0,
+      unrecognizedCount: audit.unrecognizedCount ?? 0,
+      gapsCount: audit.gapsCount ?? (cachedStats?.integrity?.noOverlapEventsCount || 0),
+      verificationDifferencesCount: audit.verificationDifferencesCount ?? 0,
+      verificationRecoveredCount: audit.verificationRecoveredCount ?? 0,
+      finalTotal: audit.finalTotal ?? (cachedStats?.totalMessages || 0),
+      senderCounts: audit.senderCounts || cachedStats?.senderCounts || {},
+      duplicates: cachedStats?.integrity?.duplicates || 0,
+      rejectedSeparators: cachedStats?.integrity?.rejectedSeparatorsCount || 0
+    },
+    healthy: audit.healthy !== undefined ? audit.healthy : !cachedStats?.integrity?.hasWarning,
+    direction: {
+      confidence: dir.lowConfidence ? 'low' : 'high',
+      comboUsed: toList(dir.comboUsed),
+      agreement: dir.agreement || {},
+      counts: { me: dir.meCount ?? dir.counts?.me ?? 0, contact: dir.themCount ?? dir.counts?.contact ?? 0 }
+    },
+    selectorHits: audit.selectorHits || {},
+    gapEvents: audit.gapEvents || [],
+    verificationDetails: audit.verificationDetails || [],
+    dateOrderViolations: audit.dateOrderViolations || [],
+    resolvedWeekdays: audit.resolvedWeekdays || [],
+    rejectedSeparators: audit.rejectedSeparators || [],
+    unrecognizedSamples,
     beginningReached: !!cachedStats?.integrity?.beginningReached,
-    duplicates: cachedStats?.integrity?.duplicates || 0,
     sanityCheckWarnings: toList(cachedStats?.integrity?.sanityCheck?.warnings),
-    correctedSenders: cachedStats?.integrity?.sanityCheck?.correctedCount || 0,
-    noOverlapEvents: cachedStats?.integrity?.noOverlapEventsCount || 0,
-    rejectedSeparators: cachedStats?.integrity?.rejectedSeparatorsCount || 0,
     locale: navigator.language,
     timestamp: new Date().toISOString()
   };
 
-  try {
-    await navigator.clipboard.writeText(JSON.stringify(diag, null, 2));
-    showToast('Diagnostics copied (no message content)');
-  } catch (_) {
-    showToast('Failed to copy diagnostics');
+  if (includeSampleText && Array.isArray(cachedMessages)) {
+    report.sampleMessages = cachedMessages.slice(0, 10).map((m, idx) => ({
+      idx,
+      type: m.type,
+      isMe: !!m.isMe,
+      timestamp: m.timestamp || null,
+      textPreview: (m.text || '').slice(0, 80)
+    }));
   }
+
+  return report;
+}
+
+async function copyDebugReport(includeSampleText = false) {
+  const report = buildDebugReport(includeSampleText);
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+    showToast(includeSampleText ? 'Debug report copied (with sample text)' : 'Debug report copied (no chat text)');
+  } catch (_) {
+    showToast('Failed to copy debug report');
+  }
+}
+
+async function handleReportProblem() {
+  const includeSample = !!($('chk-include-sample-text')?.checked);
+  await copyDebugReport(includeSample);
 }
 
 function applyI18n() {
@@ -2441,6 +2590,14 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-export-pdf')?.addEventListener('click', handleExportPdf);
   $('btn-export-txt')?.addEventListener('click', () => handleExportTxt(false));
   $('btn-report-problem')?.addEventListener('click', handleReportProblem);
+  $('btn-copy-debug-report')?.addEventListener('click', () => {
+    const inc = !!($('chk-include-sample-text')?.checked);
+    copyDebugReport(inc);
+  });
+  $('btn-cc-copy-debug')?.addEventListener('click', () => {
+    const inc = !!($('chk-cc-include-sample')?.checked);
+    copyDebugReport(inc);
+  });
 
   const previewControlIds = [
     'exp-layout', 'exp-color-mode', 'exp-date-format', 'exp-time-format',

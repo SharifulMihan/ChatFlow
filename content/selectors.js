@@ -176,12 +176,14 @@ export function extractReplySender(str) {
  */
 export function isPureAccessibilityLabel(str) {
   if (!str || typeof str !== 'string') return true;
-  const s = str.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E]/g, '').trim();
+  const s = str.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/[\u00A0\u202F\u2007\u2009]/g, ' ')
+    .trim();
   if (!s) return true;
 
   if (isReplyLabel(s)) return true;
 
-  return /^(?:you\s+sent|sent\s+by\s+you|you:|[^:\n]+\s+sent|enter,\s*message\s*sent|forwarded|seen(?:\s+by\s+.*)?|delivered|sent|active\s+now)$/i.test(s) ||
+  return /^(?:you\s+sent|sent\s+by\s+you|you:|[^:\n]+\s+sent|enter,\s*message\s*sent|forwarded(?:\s+an?\s+(?:image|photo|video|message|file|attachment))?|[^:\n]+\s+forwarded(?:\s+an?\s+(?:image|photo|video|message|file|attachment))?|seen(?:\s+by\s+.*)?|delivered|sent|active\s+now)$/i.test(s) ||
          /^(?:আপনি\s+পাঠিয়েছেন|আপনি\s+উত্তর\s+দিয়েছেন|উত্তর\s+দিয়েছেন|দেখা\s+হয়েছে|পাঠানো\s+হয়েছে)$/i.test(s);
 }
 
@@ -192,7 +194,9 @@ export function isPureAccessibilityLabel(str) {
  */
 export function cleanMessageText(raw) {
   if (!raw || typeof raw !== 'string') return { text: '', isOnlyAccessibility: true };
-  let s = raw.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E]/g, '').trim();
+  let s = raw.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/[\u00A0\u202F\u2007\u2009]/g, ' ')
+    .trim();
   if (!s) return { text: '', isOnlyAccessibility: true };
 
   if (isPureAccessibilityLabel(s)) {
@@ -203,12 +207,106 @@ export function cleanMessageText(raw) {
   s = s.replace(/^(?:you|[^\n:]+?)\s+replied(?:\s+to\s+[^\n:]+?)?\s*[:\-]\s*/i, '');
   s = s.replace(/^(?:আপনি|[^\n:]+?)\s+উত্তর\s+দিয়েছেন(?:\s+আপনাকে)?\s*[:\-]\s*/i, '');
 
+  // Strip quoted original-message accessibility prefix when embedded inline
+  s = s.replace(/^(?:[^\n:]{1,60}:\s*)?original\s+message:\s*/i, '');
+
   // Strip standard accessibility prefixes
   s = s.replace(ACCESSIBILITY_PREFIX_REGEX, '');
   s = s.replace(BENGALI_PREFIX_REGEX, '');
   s = s.trim();
 
   return { text: s, isOnlyAccessibility: !s };
+}
+
+/**
+ * Check if a string is a duration chip like "0:05", "0:19", "1:02:30".
+ * @param {string} str
+ * @returns {boolean}
+ */
+export function isDurationChipText(str) {
+  if (!str || typeof str !== 'string') return false;
+  const s = str.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0\u202F]/g, ' ').trim();
+  return /^\d{1,2}:\d{2}(?::\d{2})?$/.test(s);
+}
+
+/**
+ * Check if a string contains at least one real emoji glyph.
+ * @param {string} str
+ * @returns {boolean}
+ */
+export function containsEmojiGlyph(str) {
+  if (!str || typeof str !== 'string') return false;
+  return /\p{Extended_Pictographic}|\p{Emoji_Presentation}/u.test(str);
+}
+
+/**
+ * Extract only real emoji reactions (with optional reactor name) from raw reaction text/DOM.
+ * Never allows durations ("0:19"), "???", or arbitrary text as reactions.
+ * @param {Element|null} el
+ * @param {string} [rawText='']
+ * @returns {string[]}
+ */
+export function extractValidReactions(el = null, rawText = '') {
+  if (Array.isArray(el)) {
+    const out = [];
+    const seenArr = new Set();
+    for (const item of el) {
+      const s = typeof item === 'string' ? item.trim() : '';
+      if (!s || isDurationChipText(s) || /\?{2,}/.test(s) || !containsEmojiGlyph(s)) continue;
+      // Preserve "Reactor 😂" if formatted cleanly, otherwise parse tokens from string
+      const cleaned = s.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, '').replace(/\s+/g, ' ').trim();
+      const parsed = extractValidReactions(null, cleaned);
+      const val = (cleaned.length <= 40 && parsed.length === 1 && cleaned.includes(parsed[0]))
+        ? cleaned.replace(/\s+\d+$/, '').trim()
+        : (parsed[0] || '');
+      if (val && !seenArr.has(val)) {
+        seenArr.add(val);
+        out.push(val);
+      }
+    }
+    return out;
+  }
+
+  const results = [];
+  const seen = new Set();
+  const addReaction = (emoji, reactor = '') => {
+    const cleanEmoji = (emoji || '').trim();
+    if (!cleanEmoji || !containsEmojiGlyph(cleanEmoji)) return;
+    if (isDurationChipText(cleanEmoji) || /\?{2,}/.test(cleanEmoji)) return;
+    const cleanReactor = (reactor || '')
+      .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, '')
+      .replace(/^(?:reactions?:?\s*)/i, '')
+      .replace(/\?{2,}/g, '')
+      .trim();
+    const label = cleanReactor ? `${cleanReactor} ${cleanEmoji}` : cleanEmoji;
+    if (!seen.has(label)) {
+      seen.add(label);
+      results.push(label);
+    }
+  };
+
+  if (el && typeof el.querySelectorAll === 'function') {
+    const imgs = el.querySelectorAll('img[alt]');
+    for (const img of imgs) {
+      const alt = (img.getAttribute('alt') || '').trim();
+      const parentAria = (img.parentElement?.getAttribute?.('aria-label') || el.getAttribute?.('aria-label') || '').trim();
+      if (containsEmojiGlyph(alt)) {
+        const reactorMatch = parentAria.match(/^(.+?)\s+reacted\s+/i);
+        addReaction(alt, reactorMatch ? reactorMatch[1] : '');
+      }
+    }
+  }
+
+  const s = (rawText || '').replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0\u202F]/g, ' ').trim();
+  if (s && containsEmojiGlyph(s)) {
+    const stripped = s.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, '').replace(/\?{2,}/g, '').trim();
+    const emojiMatches = stripped.match(/(?:\p{Extended_Pictographic}|\p{Emoji_Presentation})(?:\uFE0F|\u200D(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}))*/gu) || [];
+    for (const em of emojiMatches) {
+      addReaction(em);
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -228,22 +326,47 @@ export function isEmojiOnlySender(name) {
 
 /**
  * Check if an element or text represents an emoji reaction badge rather than a message.
+ * NEVER matches empty media containers, video durations ("0:19"), or "???".
  * @param {string} rawText
  * @param {Element} [el=null]
  * @returns {boolean}
  */
 export function isReactionOnly(rawText, el = null) {
-  const s = (rawText || '').trim();
-  if (s && !/\p{L}/u.test(s)) {
-    return true;
+  const s = (rawText || '').replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0\u202F]/g, ' ').trim();
+
+  // If element contains non-emoji media (video, audio, or content image), it is NEVER a reaction-only badge
+  if (el && typeof el.querySelector === 'function') {
+    if (el.querySelector('video, audio')) return false;
+    const imgs = el.querySelectorAll ? Array.from(el.querySelectorAll('img')) : [];
+    const hasContentImg = imgs.some(img => {
+      const alt = (img.getAttribute('alt') || '').trim();
+      const src = (img.getAttribute('src') || '').trim();
+      const w = parseInt(img.getAttribute('width') || img.width || 0, 10);
+      const h = parseInt(img.getAttribute('height') || img.height || 0, 10);
+      if (src.includes('emoji.php') || (containsEmojiGlyph(alt) && w <= 24 && h <= 24)) return false;
+      if (w > 48 || h > 48 || /photo|image|attachment|open photo/i.test(alt)) return true;
+      return false;
+    });
+    if (hasContentImg) return false;
   }
+
+  // Video duration chips like "0:19" or "0:05" or "???" are NEVER reactions
+  if (isDurationChipText(s) || /^\?+$/.test(s)) {
+    return false;
+  }
+
+  if (s && containsEmojiGlyph(s)) {
+    const withoutEmojiAndNums = s.replace(/(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\uFE0F|\u200D|\s|\d)+/gu, '');
+    if (withoutEmojiAndNums.length === 0 && s.length <= 24) {
+      return true;
+    }
+  }
+
   if (el && typeof el.getAttribute === 'function') {
     const aria = el.getAttribute('aria-label') || '';
-    if (/reaction|reacted/i.test(aria)) return true;
+    if (/reaction|reacted/i.test(aria) && (containsEmojiGlyph(aria) || (el.querySelector && el.querySelector('img[alt]')))) return true;
     const testid = el.getAttribute('data-testid') || '';
-    if (/reaction/i.test(testid)) return true;
-    const cl = el.getAttribute('class') || '';
-    if (/reaction/i.test(cl)) return true;
+    if (/reaction/i.test(testid) && !el.querySelector?.('div[dir="auto"]')) return true;
   }
   return false;
 }
@@ -324,9 +447,51 @@ export function detectDateFormat(separatorStrings) {
  * @param {Date} [baseDate=new Date()]
  * @returns {Date|null}
  */
-export function parseDateSeparatorText(str, format = 'MDY', lastDate = null, baseDate = new Date()) {
+export function normalizeDateString(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/[\u00A0\u202F\u2007\u2009]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Pure syntactic check: returns true if the ENTIRE string matches a date/time
+ * separator or hover timestamp pattern (independent of chronological lastDate).
+ * Prevents rejected/backwards separators and hover timestamps from EVER being
+ * emitted as chat messages.
+ * @param {string} str
+ * @param {'MDY'|'DMY'} [format='MDY']
+ * @param {Date} [baseDate=new Date()]
+ * @returns {boolean}
+ */
+export function looksLikeDateOrTimeSeparator(str, format = 'MDY', baseDate = new Date()) {
+  const s = normalizeDateString(str);
+  if (!s || s.length > 60) return false;
+  // Pass allowFuture=true / no lastDate / synthetic base so syntax is checked independently of chronology
+  return parseDateSeparatorText(s, format, null, baseDate, { skipRecencyCheck: true }) !== null;
+}
+
+/**
+ * Strictly parse Messenger & WhatsApp date/time separators.
+ * Strict rules:
+ * - Standalone centered element matching explicit date/time patterns only.
+ * - Never runs over message text, replies, or captions.
+ * - 2-digit years 00-99 mean 2000-2099.
+ * - Validates year >= 2008 and not in future.
+ * - Rejects non-decreasing chronological jumps (backwards dates).
+ * - ZERO fallback to new Date(s).
+ * @param {string} str
+ * @param {'MDY'|'DMY'} [format='MDY']
+ * @param {Date|null} [lastDate=null]
+ * @param {Date} [baseDate=new Date()]
+ * @param {{ skipRecencyCheck?: boolean }} [opts={}]
+ * @returns {Date|null}
+ */
+export function parseDateSeparatorText(str, format = 'MDY', lastDate = null, baseDate = new Date(), opts = {}) {
   if (!str || typeof str !== 'string') return null;
-  const s = str.trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
+  const s = normalizeDateString(str);
   if (!s || s.length > 60) return null;
 
   function parseTimeParts(hStr, mStr, meridiem) {
@@ -340,8 +505,9 @@ export function parseDateSeparatorText(str, format = 'MDY', lastDate = null, bas
 
   // Helper to validate and check chronological non-decreasing sanity
   function validateDate(d) {
-    if (!isValidConversationDate(d)) return null;
-    if (lastDate && d.getTime() < lastDate.getTime() - 24 * 60 * 60 * 1000) {
+    if (!opts.skipRecencyCheck && !isValidConversationDate(d, baseDate)) return null;
+    if (opts.skipRecencyCheck && (!d || !(d instanceof Date) || isNaN(d.getTime()) || d.getFullYear() < 2008)) return null;
+    if (lastDate && d.getTime() < lastDate.getTime()) {
       return null;
     }
     return d;
@@ -398,7 +564,7 @@ export function parseDateSeparatorText(str, format = 'MDY', lastDate = null, bas
     return validateDate(d);
   }
 
-  // 3. Text Month Date + Optional Time (e.g. "May 11, 2026, 9:14 PM", "Sunday, October 11, 2026", "11 May 2026, 9:14 PM")
+  // 3. Text Month Date + Optional Time (e.g. "Oct 22, 2026, 2:22 PM", "May 11, 2026, 9:14 PM", "11 May 2026, 9:14 PM")
   const textMonth1 = s.match(/^(?:(?:sun|mon|tue|wed|thu|fri|sat)[a-z]*[,\s]+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{2,4}))?(?:[,\s]+at|[,\s]+)*(?:(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap]m)?)?$/i);
   if (textMonth1) {
     const month = MONTHS_MAP[textMonth1[1].slice(0, 3).toLowerCase()];
@@ -434,6 +600,7 @@ export function parseDateSeparatorText(str, format = 'MDY', lastDate = null, bas
   // 4. Relative Today / Yesterday
   if (/^today/i.test(s)) {
     const m = s.match(/^today(?:[,\s]+at)?[,\s]+(\d{1,2}):(\d{2})\s*([ap]m)?$/i);
+    if (!m && !/^today$/i.test(s)) return null;
     const ref = baseDate ? new Date(baseDate) : new Date();
     let hours = 12, minutes = 0;
     if (m) {
@@ -446,6 +613,7 @@ export function parseDateSeparatorText(str, format = 'MDY', lastDate = null, bas
 
   if (/^yesterday/i.test(s)) {
     const m = s.match(/^yesterday(?:[,\s]+at)?[,\s]+(\d{1,2}):(\d{2})\s*([ap]m)?$/i);
+    if (!m && !/^yesterday$/i.test(s)) return null;
     const ref = baseDate ? new Date(baseDate) : new Date();
     const y = new Date(ref.getTime() - 24 * 60 * 60 * 1000);
     let hours = 12, minutes = 0;
@@ -457,19 +625,30 @@ export function parseDateSeparatorText(str, format = 'MDY', lastDate = null, bas
     return validateDate(d);
   }
 
-  // 5. Weekday + Time: e.g. "Mon 10:32 AM", "Tuesday 4:15 PM"
-  const weekdayMatch = s.match(/^(mon|tue|wed|thu|fri|sat|sun)[a-z]*(?:[,\s]+at)?[,\s]+(\d{1,2}):(\d{2})\s*([ap]m)?$/i);
+  // 5. Weekday (+ optional Time): e.g. "Thu 5:12 PM", "Mon 10:32 AM", "Mon", "Monday"
+  // Always resolves relative to baseDate (scan date): most recent such weekday on or before baseDate,
+  // and must be >= lastDate (non-decreasing).
+  const weekdayMatch = s.match(/^(mon|tue|wed|thu|fri|sat|sun)[a-z]*(?:(?:[,\s]+at|[,\s]+)(\d{1,2}):(\d{2})\s*([ap]m)?)?$/i);
   if (weekdayMatch) {
     const weekdayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
-    const targetDay = weekdayMap[weekdayMatch[1].slice(0, 3).toLowerCase()];
-    const tp = parseTimeParts(weekdayMatch[2], weekdayMatch[3], weekdayMatch[4]);
-    const ref = lastDate ? new Date(lastDate) : (baseDate ? new Date(baseDate) : new Date());
+    const token = weekdayMatch[1].toLowerCase();
+    // Avoid matching arbitrary words if abbreviated beyond 3 letters unless full weekday name
+    if (!/^(?:mon|monday|tue|tues|tuesday|wed|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday|sun|sunday)$/.test(token)) {
+      return null;
+    }
+    const targetDay = weekdayMap[token.slice(0, 3)];
+    const tp = (weekdayMatch[2] && weekdayMatch[3])
+      ? parseTimeParts(weekdayMatch[2], weekdayMatch[3], weekdayMatch[4])
+      : { hours: 12, minutes: 0 };
+    const scanRef = baseDate ? new Date(baseDate) : new Date();
 
-    let diff = (ref.getDay() - targetDay + 7) % 7;
-    if (diff === 0 && !lastDate) diff = 7;
-    const targetDate = new Date(ref.getTime() - diff * 24 * 60 * 60 * 1000);
-    const d = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), tp.hours, tp.minutes);
-    return validateDate(d);
+    let diff = (scanRef.getDay() - targetDay + 7) % 7;
+    let targetDate = new Date(scanRef.getFullYear(), scanRef.getMonth(), scanRef.getDate() - diff, tp.hours, tp.minutes);
+    // If today is targetDay but resolved time is strictly after scanRef time, step back 7 days
+    if (diff === 0 && !opts.skipRecencyCheck && targetDate.getTime() > scanRef.getTime() + 60 * 1000) {
+      targetDate = new Date(scanRef.getFullYear(), scanRef.getMonth(), scanRef.getDate() - 7, tp.hours, tp.minutes);
+    }
+    return validateDate(targetDate);
   }
 
   // 6. Time-Only Separator (e.g. "12:45 AM" or "14:30")
@@ -585,7 +764,7 @@ export const LOCALIZED_SYSTEM_PATTERNS = [
  */
 export function isTimeOrDateString(raw) {
   if (!raw || typeof raw !== 'string') return false;
-  const s = raw.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E]/g, '').trim();
+  const s = normalizeDateString(raw);
   if (!s) return false;
 
   // Time: "1:22 AM", "17:45", "~1:22 AM", "1:22:30 PM"
@@ -594,8 +773,10 @@ export function isTimeOrDateString(raw) {
   if (/^\d{1,4}[/\-.]\d{1,2}[/\-.]\d{1,4}$/.test(s)) return true;
   // Date + time: "11/5/2026, 1:22 AM"
   if (/^\d{1,4}[/\-.]\d{1,2}[/\-.]\d{1,4}[,\s]+\d{1,2}:\d{2}/.test(s)) return true;
+  // Full month date/time or weekday separator: "Jun 10, 2026, 1:32 AM", "Thu 5:12 PM"
+  if (looksLikeDateOrTimeSeparator(s)) return true;
   // Relative day keywords (English & localized)
-  if (/^(?:today|yesterday|tomorrow|আজ|গতকাল|ayer|hoy|ontem|hoje|hier|aujourd'hui|gestern|heute|اليوم|أمس|आज|कल|hari ini|kemarin|bugün|dün|сегодня|вчера)(?:\s+at\s+.*)?$/i.test(s)) {
+  if (/^(?:today|yesterday|tomorrow|আজ|গতকাল|ayer|hoy|ontem|hoje|hier|aujourd'hui|gestern|heute|اليوم|أمس|आज|कल|hari ini|kemarin|bugün|dün|сегодня|вчера)(?:\s+(?:at\s+)?.*)?$/i.test(s)) {
     return true;
   }
   // Weekday names alone

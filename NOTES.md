@@ -25,4 +25,21 @@
    - Added one `AbortController` per scan phase (`ScanController.resetPhaseSignal()`), replaced plain sleeps with `abortableSleep(ms, signal, ctrl)`, and wired `waitForMutations`, `waitForDomQuiet`, and adapter `scrollToLoadOlder` loops to resolve immediately on `signal` abort.
    - Clicking `"Stop loading"` now receives an immediate `{ ok: true, status: 'phase1_stopped', state: 'ready', ... }` acknowledgement, transitions to `"Ready to scan"` within ~50–300 ms, and is guarded by a 2-second watchdog in `sidepanel/sidepanel.js` that forces `"Ready to scan"` and retries `STOP_LOADING` up to 3 times if no ack arrives.
 
+6. **Messenger Scan Root Cause & DOM Comparison (Bug Report Fixes)**:
+   - **Why Contact Messages Were Missed (`MISSED_CONTACT_ROW_HTML` vs `EXPORTED_OUTGOING_ROW_HTML`)**:
+     - Messenger renders many incoming contact text messages and image rows inside a flat `[role="row"] > div` structure containing a left avatar `<img>`, a hidden `"Sudipta sent"` span, and a `div[dir="auto"]` bubble **without** `[data-testid="message-container"]` or `[role="gridcell"]`, whereas outgoing rows frequently wrap the bubble in `[role="gridcell"][data-testid="message-container"]` + `[data-scope="message_content"]`.
+     - Single-selector extraction + `isReactionOnly` / accessibility checks either missed rows lacking `[data-scope="message_content"]`, stripped lines matching accessible labels, or let reply thumbnails inside `[role="blockquote"]` hijack `detectMessageType()` (turning the reply `"Sei"` into a phantom `"Video"` message).
+   - **Why Junk & Wrong Dates Were Exported**:
+     - `MessengerAdapter` stored `activeDateSeparator` across snapshots on `this`. When Snapshot 1 ended in `Sep 4` and Snapshot 2 overlapped rows above `Jun 10`, those rows inherited `Sep 4`, putting `"September 2026"` before `"June 2026"` and duplicating month headings in the TOC. Fixed by initializing `localDateCursor = null` fresh on every `extractMessages()` snapshot and tracking `seenMonthLabels` in `exporter-docx.js`.
+     - Weekday separators (`"Thu 5:12 PM"`) previously walked backward from the previous separator (`Oct 23`), resolving to `Oct 22` instead of `Nov 12` relative to the scan date (`Fri Nov 13, 2026`). Fixed in `parseDateSeparatorText()` by resolving weekday separators relative to `baseDate` (`<= baseSessionDate`) while still enforcing `>= lastDate`.
+     - Hover timestamps (`role="tooltip"` like `"Jun 10, 2026, 1:32 AM"`), avatar labels (`"Sudipta"`), forwarded prefixes (`"Sudipta forwarded an image"`), and video durations (`"0:19"`, `"???""`) are now classified/filtered strictly by `classifyRow()`, `isCenteredOutsideBubble()`, `isDurationChipText()`, and `extractValidReactions()`.
+   - **Never Drop Silently (`classifyRow()` & `UNRECOGNIZED`)**:
+     - `enumerateCandidateRows()` queries `[role="row"]`, `[role="gridcell"]`, children of `[aria-label*="Messages in"]`, `[role="region"]`, `[role="grid"]`, `[role="main"]` message panes, and content-bearing direct children.
+     - Every candidate goes through `classifyRow()`, returning `message | separator | system | reply-label | ui-noise | UNRECOGNIZED`.
+     - `UNRECOGNIZED` rows are logged with index, `scrollTop`, tag/role/aria-label, trimmed text preview, and `outerHTML` (<=2,000 chars), and rows containing visible text/media are emitted as `[Unrecognized message]` (rendered in gray italics in exports).
+   - **Ambiguity Resolutions**:
+     - *Pass 2 Verification*: Runs automatically for non-WhatsApp (Messenger virtualized DOMs) at `30%` step starting at a half-step offset (`20%` of viewport), and can be opted into via `verifyPass: true`; WhatsApp stays single-pass by default so working WhatsApp scans are unchanged.
+     - *Backwards Date Separators*: Never re-sort `masterList`. Backwards separators (>60s earlier than running date) are logged in `integrity.audit.dateOrderViolations` and ignored (clamped to `runningDate`).
+     - *5-Minute Sender Grouping*: Uses `Math.abs(msgTimeMs - lastTimeMs) <= 5 min` and trimmed sender equality in `groupMessagesForExport()` so sub-second/approximate timestamp differences never split consecutive bubbles.
+
 

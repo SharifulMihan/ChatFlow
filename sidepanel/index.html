@@ -270,8 +270,12 @@
           <!-- Scan complete summary + health -->
           <div id="complete-card" class="flat-card complete-card">
             <div class="complete-head">
-              <span class="complete-check" aria-hidden="true">✓</span>
+              <span id="complete-check-icon" class="complete-check" aria-hidden="true">✓</span>
               <h2 class="complete-title" id="complete-title" tabindex="-1" data-i18n="scanComplete">Scan complete</h2>
+            </div>
+            <div id="cc-incomplete-banner" class="incomplete-banner hidden" role="status">
+              <strong>Scan may be incomplete</strong>
+              <span id="cc-incomplete-reason" class="incomplete-reason"></span>
             </div>
             <div class="complete-grid">
               <div><div class="mini-label" data-i18n="totalMessages">Total messages</div><div class="mini-val" id="cc-total">0</div></div>
@@ -281,8 +285,23 @@
             <div id="cc-participants" class="participant-rows compact"></div>
             <div id="cc-split" class="split-bar" aria-hidden="true"></div>
 
+            <div class="mini-label health-title">Coverage audit</div>
+            <div id="cc-audit-grid" class="audit-grid">
+              <div class="audit-cell"><span>Candidates</span><strong id="cc-aud-candidates">0</strong></div>
+              <div class="audit-cell"><span>Exported</span><strong id="cc-aud-exported">0</strong></div>
+              <div class="audit-cell"><span>Sep / Sys / Noise</span><strong id="cc-aud-nonmsg">0 / 0 / 0</strong></div>
+              <div class="audit-cell"><span>Unrecognized</span><strong id="cc-aud-unrec">0</strong></div>
+              <div class="audit-cell"><span>Scroll gaps</span><strong id="cc-aud-gaps">0</strong></div>
+              <div class="audit-cell"><span>Verify diffs</span><strong id="cc-aud-diffs">0</strong></div>
+            </div>
+
             <div class="mini-label health-title" data-i18n="scanHealth">Scan health</div>
             <ul id="health-list" class="health-list"></ul>
+
+            <div id="cc-debug-bar" class="debug-report-bar hidden">
+              <button id="btn-cc-copy-debug" class="btn btn-outline btn-block" type="button">Copy debug report</button>
+              <label class="debug-sample-opt"><input id="chk-cc-include-sample" type="checkbox" /> Include sample text</label>
+            </div>
 
             <div class="complete-actions">
               <button id="btn-sum-docx" class="btn btn-primary btn-block" type="button"><span data-i18n="btnDownloadDocx">Download Word (.docx)</span></button>
@@ -648,15 +667,27 @@
             <!-- Scan Integrity & Verification Card -->
             <div id="integrity-card" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span class="settings-label" style="font-weight: 600;">Scan Integrity</span>
+                <span class="settings-label" style="font-weight: 600;">Scan Integrity &amp; Coverage Audit</span>
                 <button id="btn-verify-scan" class="btn btn-outline" style="padding: 3px 10px; font-size: 11px; height: 26px;">
                   <span>Verify Scan</span>
                 </button>
               </div>
               <div class="settings-list" style="font-size: 11px; margin-bottom: 8px;">
                 <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Candidate Rows Seen</span>
+                  <span id="int-candidates" class="settings-val">0</span>
+                </div>
+                <div class="settings-row" style="padding: 4px 0;">
                   <span class="settings-label">Messages Captured</span>
                   <span id="int-total-msgs" class="settings-val">0</span>
+                </div>
+                <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Separators / System / Noise</span>
+                  <span id="int-sep-sys-noise" class="settings-val">0 / 0 / 0</span>
+                </div>
+                <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Unrecognized Rows</span>
+                  <span id="int-unrecognized" class="settings-val">0</span>
                 </div>
                 <div class="settings-row" style="padding: 4px 0;">
                   <span class="settings-label">Overlap Verifications</span>
@@ -667,9 +698,17 @@
                   <span id="int-no-overlap" class="settings-val">0</span>
                 </div>
                 <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Verification Differences</span>
+                  <span id="int-verify-diffs" class="settings-val">0</span>
+                </div>
+                <div class="settings-row" style="padding: 4px 0;">
                   <span class="settings-label">Rejected Separators</span>
                   <span id="int-rejected-seps" class="settings-val">0</span>
                 </div>
+              </div>
+              <div class="debug-report-bar" style="margin-bottom: 8px;">
+                <button id="btn-copy-debug-report" class="btn btn-outline btn-block" type="button" style="font-size: 11px; height: 28px;">Copy debug report (JSON)</button>
+                <label class="debug-sample-opt"><input id="chk-include-sample-text" type="checkbox" /> Include sample text (off by default)</label>
               </div>
               <div id="verify-scan-result" class="settings-desc-note" style="font-family: monospace; font-size: 11px; line-height: 1.5; background: var(--surface-inner); border-radius: 8px; padding: 8px 10px; min-height: 32px;">
                 Run a scan to view integrity details, or click "Verify Scan" to sample against visible chat.

@@ -26,7 +26,8 @@ import {
 
 const PHASE1_MAX_ATTEMPTS = 45;       // Hard cap on upward scroll attempts
 const PHASE1_TIMEOUT_MS = 25000;       // Max ms before forced transition to Phase 2
-const DOWNWARD_STEP_RATIO = 0.48;      // Step size <= 50% of container clientHeight
+const DOWNWARD_STEP_RATIO = 0.40;      // Step size <= 40% of container clientHeight
+const VERIFY_STEP_RATIO = 0.30;        // Pass 2 verification step size (30% of clientHeight)
 const DOM_QUIET_MS = 300;              // Required ms of no DOM mutations before reading
 const DOM_MAX_WAIT_MS = 1500;          // Ceiling on DOM settle wait
 const MUTATION_WAIT_MS = 1200;         // Max ms to wait for MutationObserver in Phase 1
@@ -225,7 +226,8 @@ export function isRowMatch(a, b) {
  * @param {Object[]} rows
  * @returns {number} count of newly appended rows
  */
-export function appendDeduplicated(masterList, rows) {
+export function appendDeduplicated(masterList, rows, opts = {}) {
+  const { domIdOnly = false } = opts;
   if (!Array.isArray(rows) || rows.length === 0) return 0;
   const existingDomIds = new Set();
   for (let i = 0; i < masterList.length; i++) {
@@ -236,7 +238,7 @@ export function appendDeduplicated(masterList, rows) {
   for (const sItem of rows) {
     if (!sItem) continue;
     if (sItem.domId && existingDomIds.has(sItem.domId)) continue;
-    if (!sItem.domId) {
+    if (!sItem.domId && !domIdOnly) {
       let dupInTail = false;
       for (let mIdx = masterList.length - 1; mIdx >= tailStart; mIdx--) {
         if (isRowMatch(masterList[mIdx], sItem)) {
@@ -299,7 +301,7 @@ export function mergeSnapshot(masterList, snapshot) {
     }
 
     const toAppend = snapshot.slice(bestK);
-    const appended = appendDeduplicated(masterList, toAppend);
+    const appended = appendDeduplicated(masterList, toAppend, { domIdOnly: true });
     return { overlap: bestK, appended };
   }
 
@@ -349,6 +351,130 @@ export function mergeSnapshot(masterList, snapshot) {
   }
 
   return { overlap: 0, appended: 0 };
+}
+
+/**
+ * Reconcile a second verification pass (`verifyList`) against Pass 1 (`masterList`)
+ * in reading order. Any row seen in `verifyList` but absent from `masterList` is
+ * inserted at its anchored reading-order position; any row present in `masterList`
+ * within the covered range that `verifyList` missed is reported as a difference.
+ *
+ * @param {Object[]} masterList
+ * @param {Object[]} verifyList
+ * @returns {{ differencesCount: number, recoveredCount: number, missedInPass1: Object[], missedInPass2: Object[], details: Object[] }}
+ */
+export function reconcileVerificationPass(masterList, verifyList) {
+  const details = [];
+  const missedInPass1 = [];
+  const missedInPass2 = [];
+  if (!Array.isArray(verifyList) || verifyList.length === 0) {
+    return { differencesCount: 0, recoveredCount: 0, missedInPass1, missedInPass2, details };
+  }
+
+  // Track which masterList indices were matched (and preserve non-decreasing order)
+  const usedMasterIdx = new Set();
+  const verifyToMaster = new Array(verifyList.length).fill(-1);
+  let cursor = 0;
+
+  for (let vIdx = 0; vIdx < verifyList.length; vIdx++) {
+    const vItem = verifyList[vIdx];
+    if (!vItem) continue;
+    let foundIdx = -1;
+    // First search forward from cursor to respect order with repeated short texts ("Ok", "Ho")
+    for (let mIdx = cursor; mIdx < masterList.length; mIdx++) {
+      if (!usedMasterIdx.has(mIdx) && isRowMatch(masterList[mIdx], vItem)) {
+        foundIdx = mIdx;
+        break;
+      }
+    }
+    // Fallback: search slightly before cursor by domId if virtualized order shifted
+    if (foundIdx === -1 && vItem.domId) {
+      for (let mIdx = 0; mIdx < masterList.length; mIdx++) {
+        if (!usedMasterIdx.has(mIdx) && masterList[mIdx]?.domId === vItem.domId) {
+          foundIdx = mIdx;
+          break;
+        }
+      }
+    }
+    if (foundIdx !== -1) {
+      usedMasterIdx.add(foundIdx);
+      verifyToMaster[vIdx] = foundIdx;
+      mergeRowMetadata(masterList[foundIdx], vItem);
+      if (foundIdx >= cursor) cursor = foundIdx + 1;
+    }
+  }
+
+  // Determine range of masterList covered by verifyList so we can detect Pass 2 misses too
+  const matchedMasterIndices = verifyToMaster.filter(idx => idx !== -1).sort((a, b) => a - b);
+  if (matchedMasterIndices.length > 0) {
+    const spanStart = matchedMasterIndices[0];
+    const spanEnd = matchedMasterIndices[matchedMasterIndices.length - 1];
+    for (let mIdx = spanStart; mIdx <= spanEnd; mIdx++) {
+      if (!usedMasterIdx.has(mIdx)) {
+        const mItem = masterList[mIdx];
+        missedInPass2.push(mItem);
+        details.push({
+          kind: 'missed_in_pass2',
+          masterIndex: mIdx,
+          type: mItem?.type || 'text',
+          preview: (mItem?.text || '').slice(0, 40)
+        });
+      }
+    }
+  }
+
+  // Insert items from verifyList that Pass 1 missed at their anchored position.
+  // Walk backwards or adjust offsets as we splice so indices stay valid.
+  let insertedCount = 0;
+  for (let vIdx = 0; vIdx < verifyList.length; vIdx++) {
+    if (verifyToMaster[vIdx] !== -1) continue;
+    const vItem = verifyList[vIdx];
+    if (!vItem) continue;
+
+    // Find closest previous matched anchor in verifyList
+    let insertAt = -1;
+    for (let p = vIdx - 1; p >= 0; p--) {
+      if (verifyToMaster[p] !== -1) {
+        insertAt = verifyToMaster[p] + 1;
+        break;
+      }
+    }
+    if (insertAt === -1) {
+      // Find closest next matched anchor
+      for (let n = vIdx + 1; n < verifyList.length; n++) {
+        if (verifyToMaster[n] !== -1) {
+          insertAt = verifyToMaster[n];
+          break;
+        }
+      }
+    }
+    if (insertAt === -1) {
+      insertAt = masterList.length;
+    }
+
+    masterList.splice(insertAt, 0, vItem);
+    verifyToMaster[vIdx] = insertAt;
+    // Shift subsequent cached master indices >= insertAt by +1
+    for (let k = vIdx + 1; k < verifyToMaster.length; k++) {
+      if (verifyToMaster[k] >= insertAt) verifyToMaster[k]++;
+    }
+    insertedCount++;
+    missedInPass1.push(vItem);
+    details.push({
+      kind: 'recovered_in_pass2',
+      insertedAt: insertAt,
+      type: vItem?.type || 'text',
+      preview: (vItem?.text || '').slice(0, 40)
+    });
+  }
+
+  return {
+    differencesCount: missedInPass1.length + missedInPass2.length,
+    recoveredCount: insertedCount,
+    missedInPass1,
+    missedInPass2,
+    details
+  };
 }
 
 // ─── Scan Session (3-phase state machine, manual start) ──────────────────────
@@ -677,6 +803,7 @@ export class ScanSession extends ScanController {
     const masterList = [];
     let overlapMergesCount = 0;
     let noOverlapEventsCount = 0;
+    const gapEvents = [];
     const startedAt = Date.now();
     let lastPercent = 0;
     let directionLowLive = false;
@@ -708,6 +835,7 @@ export class ScanSession extends ScanController {
     this.setState('reading', { count: 0, percent: 0, currentDate: null, rate: 0, etaSec: null, elapsedMs: 0 });
 
     adapter.resetSessionDates?.();
+    adapter.resetAuditStats?.();
     container.scrollTop = 0;
     container.dispatchEvent(new Event('scroll', { bubbles: true }));
     await waitForDomQuiet(container, 350, 1500, this);
@@ -742,12 +870,23 @@ export class ScanSession extends ScanController {
       if (mergeRes.overlap > 0) {
         overlapMergesCount++;
       } else if (snapshot.length > 0 && masterList.length > 0 && container.scrollTop !== prevScrollTop) {
-        container.scrollTop = prevScrollTop + Math.max(80, Math.floor(step * 0.35));
+        const retryScrollTop = prevScrollTop + Math.max(80, Math.floor(step * 0.5));
+        container.scrollTop = retryScrollTop;
         container.dispatchEvent(new Event('scroll', { bubbles: true }));
         await waitForDomQuiet(container, DOM_QUIET_MS, DOM_MAX_WAIT_MS, this);
         this._check();
         const retrySnap = adapter.extractMessages(this.doc);
         const retryMerge = mergeSnapshot(masterList, retrySnap);
+        const gapEvent = {
+          step: forwardSteps,
+          prevScrollTop,
+          failedScrollTop: prevScrollTop + step,
+          retryScrollTop,
+          recovered: retryMerge.overlap > 0,
+          retryOverlap: retryMerge.overlap,
+          appended: retryMerge.appended
+        };
+        gapEvents.push(gapEvent);
         if (retryMerge.overlap > 0) {
           overlapMergesCount++;
         } else {
@@ -794,6 +933,18 @@ export class ScanSession extends ScanController {
       mergeSnapshot(masterList, adapter.extractMessages(this.doc));
     }
 
+    // Snapshot primary sweep audit before verification pass runs (avoids double-counting candidate rows)
+    const pass1Audit = adapter.getAuditSnapshot ? adapter.getAuditSnapshot() : null;
+
+    // Pass 2 verification pass (30% step starting at half-step offset) for Messenger / virtualized feeds
+    let verificationResult = { differencesCount: 0, recoveredCount: 0, details: [], ran: false };
+    const shouldVerifyPass2 = !userStopped && (!isWhatsApp || options.verifyPass === true) &&
+      (container.scrollHeight > container.clientHeight + 20);
+    if (shouldVerifyPass2) {
+      verificationResult = await this._runVerificationPass(container, adapter, masterList, phaseSignal);
+      verificationResult.ran = true;
+    }
+
     // Last counter value shown == final total (forced, un-throttled)
     lastPercent = 100;
     this.emit({ ...progressPayload(), percent: 100 }, true);
@@ -803,6 +954,9 @@ export class ScanSession extends ScanController {
     const result = this._finalize(masterList, {
       overlapMergesCount,
       noOverlapEventsCount,
+      gapEvents,
+      pass1Audit,
+      verificationResult,
       userStopped,
       myNameOverride: options.myNameOverride,
       isWhatsApp
@@ -811,10 +965,87 @@ export class ScanSession extends ScanController {
     return result;
   }
 
-  _finalize(masterList, { overlapMergesCount, noOverlapEventsCount, myNameOverride, isWhatsApp }) {
-    const adapter = this.adapter;
+  async _runVerificationPass(container, adapter, masterList, phaseSignal) {
+    const verifyList = [];
+    adapter.resetSessionDates?.();
+    const halfOffset = Math.max(0, Math.floor(container.clientHeight * 0.20));
+    container.scrollTop = halfOffset;
+    container.dispatchEvent(new Event('scroll', { bubbles: true }));
+    await waitForDomQuiet(container, DOM_QUIET_MS, DOM_MAX_WAIT_MS, this);
+    this._check();
+    if (this.finalized || phaseSignal?.aborted) {
+      return { differencesCount: 0, recoveredCount: 0, details: [], aborted: true };
+    }
 
-    // Dates: WhatsApp times are exact; only Messenger may be approximate
+    mergeSnapshot(verifyList, adapter.extractMessages(this.doc));
+
+    let atBottom = 0;
+    let lastTop = -1;
+    let steps = 0;
+    const maxSteps = 25000;
+    const step = Math.max(120, Math.floor(container.clientHeight * VERIFY_STEP_RATIO));
+
+    while (atBottom < 2 && steps < maxSteps) {
+      this._check();
+      if (this.finalized || phaseSignal?.aborted) break;
+
+      const prevTop = container.scrollTop;
+      container.scrollTop = prevTop + step;
+      container.dispatchEvent(new Event('scroll', { bubbles: true }));
+      steps++;
+
+      await waitForDomQuiet(container, DOM_QUIET_MS, DOM_MAX_WAIT_MS, this);
+      this._check();
+      if (this.finalized || phaseSignal?.aborted) break;
+
+      const snap = adapter.extractMessages(this.doc);
+      const res = mergeSnapshot(verifyList, snap);
+      if (res.overlap === 0 && snap.length > 0 && verifyList.length > 0 && container.scrollTop !== prevTop) {
+        container.scrollTop = prevTop + Math.max(60, Math.floor(step * 0.5));
+        container.dispatchEvent(new Event('scroll', { bubbles: true }));
+        await waitForDomQuiet(container, DOM_QUIET_MS, DOM_MAX_WAIT_MS, this);
+        this._check();
+        const retrySnap = adapter.extractMessages(this.doc);
+        const retryRes = mergeSnapshot(verifyList, retrySnap);
+        if (retryRes.overlap === 0) appendDeduplicated(verifyList, retrySnap);
+      }
+
+      const bottomResult = adapter.hasReachedBottom(container, this.doc);
+      const isStuck = (container.scrollTop === lastTop);
+      if (bottomResult.reached || isStuck) {
+        atBottom++;
+        await abortableSleep(160, phaseSignal, this);
+        this._check();
+        mergeSnapshot(verifyList, adapter.extractMessages(this.doc));
+      } else {
+        atBottom = 0;
+        lastTop = container.scrollTop;
+      }
+    }
+
+    container.scrollTop = container.scrollHeight;
+    container.dispatchEvent(new Event('scroll', { bubbles: true }));
+    await waitForDomQuiet(container, 250, 800, this);
+    this._check();
+    mergeSnapshot(verifyList, adapter.extractMessages(this.doc));
+
+    const rec = reconcileVerificationPass(masterList, verifyList);
+    return {
+      verifyCount: verifyList.length,
+      differencesCount: rec.differencesCount,
+      recoveredCount: rec.recoveredCount,
+      missedInPass1Count: rec.missedInPass1.length,
+      missedInPass2Count: rec.missedInPass2.length,
+      details: rec.details
+    };
+  }
+
+  _finalize(masterList, { overlapMergesCount, noOverlapEventsCount, gapEvents = [], pass1Audit = null, verificationResult = null, myNameOverride, isWhatsApp }) {
+    const adapter = this.adapter || { name: isWhatsApp ? 'WhatsApp' : 'Messenger', rejectedSeparatorsCount: 0 };
+
+    // Dates: WhatsApp times are exact; only Messenger may be approximate.
+    // Enforce non-decreasing timestamps in reading order without re-sorting messages.
+    const dateOrderViolations = [];
     let firstValidTimestamp = null;
     for (const m of masterList) {
       if (m.timestamp && isValidConversationDate(new Date(m.timestamp))) { firstValidTimestamp = m.timestamp; break; }
@@ -826,10 +1057,31 @@ export class ScanSession extends ScanController {
       }
     }
     let runningDate = firstValidTimestamp;
-    for (const msg of masterList) {
+    for (let i = 0; i < masterList.length; i++) {
+      const msg = masterList[i];
       if (msg.timestamp) {
-        if (isValidConversationDate(new Date(msg.timestamp))) runningDate = msg.timestamp;
-        else { msg.timestamp = runningDate; msg.timestampApproximate = !isWhatsApp; }
+        const d = new Date(msg.timestamp);
+        if (!isValidConversationDate(d)) {
+          msg.timestamp = runningDate;
+          msg.timestampApproximate = !isWhatsApp;
+        } else if (runningDate) {
+          const runMs = new Date(runningDate).getTime();
+          const curMs = d.getTime();
+          if (curMs < runMs - 60000) {
+            dateOrderViolations.push({
+              index: i,
+              foundTimestamp: msg.timestamp,
+              previousTimestamp: runningDate,
+              preview: (msg.text || '').slice(0, 50)
+            });
+            msg.timestamp = runningDate;
+            msg.timestampApproximate = !isWhatsApp;
+          } else {
+            runningDate = msg.timestamp;
+          }
+        } else {
+          runningDate = msg.timestamp;
+        }
       } else if (runningDate) {
         msg.timestamp = runningDate;
         msg.timestampApproximate = !isWhatsApp;
@@ -929,6 +1181,66 @@ export class ScanSession extends ScanController {
       }
     }
 
+    const auditSrc = pass1Audit || (adapter.getAuditSnapshot ? adapter.getAuditSnapshot() : null);
+    const unrecognizedListCount = masterList.filter(m => m.type === 'unrecognized').length;
+    const unrecognizedCount = Math.max(unrecognizedListCount, auditSrc?.unrecognizedCount || 0);
+    const verificationDifferencesCount = verificationResult?.differencesCount || 0;
+    const verificationRecoveredCount = verificationResult?.recoveredCount || 0;
+    const gapsCount = noOverlapEventsCount;
+    const healthy = (
+      unrecognizedCount === 0 &&
+      gapsCount === 0 &&
+      verificationDifferencesCount === 0 &&
+      !checksIncomplete &&
+      !direction.lowConfidence
+    );
+
+    const audit = {
+      candidateRowsSeen: auditSrc?.candidateRowsSeen ?? masterList.length,
+      messagesExported: masterList.length,
+      separatorsCount: auditSrc?.separatorsCount ?? 0,
+      systemRowsCount: auditSrc?.systemRowsCount ?? masterList.filter(m => m.type === 'system').length,
+      replyLabelsCount: auditSrc?.replyLabelsCount ?? 0,
+      noiseRowsCount: auditSrc?.noiseRowsCount ?? 0,
+      unrecognizedCount,
+      unrecognizedSamples: auditSrc?.unrecognizedSamples || [],
+      gapsCount,
+      gapRetriesCount: gapEvents.length,
+      gapEvents,
+      verificationRan: Boolean(verificationResult?.ran),
+      verificationDifferencesCount,
+      verificationRecoveredCount,
+      verificationDetails: verificationResult?.details || [],
+      dateOrderViolations,
+      finalTotal: masterList.length,
+      senderCounts,
+      selectorHits: auditSrc?.selectorHits || {},
+      resolvedWeekdays: auditSrc?.resolvedWeekdays || [],
+      rejectedSeparators: auditSrc?.rejectedSeparators || [],
+      healthy
+    };
+
+    const hasWarning = (
+      noOverlapEventsCount > 0 ||
+      warnings.length > 0 ||
+      checksIncomplete ||
+      unrecognizedCount > 0 ||
+      verificationDifferencesCount > 0
+    );
+
+    let warningMessage = null;
+    if (noOverlapEventsCount > 0) {
+      warningMessage = 'Some messages may be missing, rescan recommended (snapshot gap detected).';
+    } else if (unrecognizedCount > 0) {
+      warningMessage = `${unrecognizedCount} unrecognized row(s) encountered during scan; exported as "[Unrecognized message]".`;
+    } else if (verificationDifferencesCount > 0) {
+      warningMessage = `Verification pass found ${verificationDifferencesCount} difference(s) (${verificationRecoveredCount} recovered).`;
+    } else if (warnings[0]) {
+      warningMessage = warnings[0];
+    } else if (checksIncomplete) {
+      warningMessage = 'Some checks could not run';
+    }
+
     const integrity = {
       totalMessages: masterList.length,
       totalCaptured: masterList.length,
@@ -946,6 +1258,7 @@ export class ScanSession extends ScanController {
       direction,
       checksIncomplete,
       diagnosticsError,
+      audit,
       sanityCheck: {
         correctedCount: names.changed,
         warnings,
@@ -953,10 +1266,8 @@ export class ScanSession extends ScanController {
         contactName: names.contactName,
         participants: toList(names.participants)
       },
-      hasWarning: noOverlapEventsCount > 0 || warnings.length > 0 || checksIncomplete,
-      warningMessage: noOverlapEventsCount > 0
-        ? 'Some messages may be missing, rescan recommended (snapshot gap detected).'
-        : (warnings[0] || (checksIncomplete ? 'Some checks could not run' : null))
+      hasWarning,
+      warningMessage
     };
 
     try {

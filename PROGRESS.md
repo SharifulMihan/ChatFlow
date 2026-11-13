@@ -36,6 +36,12 @@
     - Added per-phase `AbortController` (`resetPhaseSignal()`) and `abortableSleep(ms, signal, ctrl)` in `content/scanner.js`, and wired `waitForMutations`, `waitForDomQuiet`, `WhatsAppAdapter.scrollToLoadOlder`, and `MessengerAdapter.scrollToLoadOlder` to abort immediately on `ctrl.signal`.
     - Updated `ScanSession.stopLoading()` and `content/content-script.js` (`STOP_LOADING`) to abort Phase 1 immediately, transition to passive `"Ready to scan"` (`_enterReady()`), and reply with `{ ok: true, status: "phase1_stopped", state: "ready", ... }`.
     - Updated `sidepanel/sidepanel.js` to transition to Ready on `STOP_LOADING` reply or `SCAN_PROGRESS` (`phase === 'ready'`), added a 2-second watchdog (`STOP_WATCHDOG_MS = 2000`) that forces the Ready screen and retries `STOP_LOADING` up to 3 times if no ack arrives, and added a `"Reload tab"` button (`#btn-reload-tab`) when connection to the chat page is lost.
+- **Step 5 (Messenger Scan Completeness, Classification, Audit & Export Fixes — Parts 1–7)**:
+  - Broadened Messenger row enumeration (`enumerateCandidateRows`) and added mandatory `classifyRow()` returning `message | separator | system | reply-label | ui-noise | UNRECOGNIZED`; captured trimmed `outerHTML` (<=2,000 chars) and emitted `[Unrecognized message]` whenever an `UNRECOGNIZED` row has visible content.
+  - Fixed reply quote vs bubble isolation (video/image thumbnails in quotes stay in `replyTo`), avatar/forwarded/`"Reactions:"`/duration chip filtering, hover timestamp exclusion, per-snapshot `localDateCursor = null`, weekday resolution relative to scan date (`baseSessionDate`), and non-decreasing chronological validation (`dateOrderViolations`, never re-sorting).
+  - Implemented `40%` Pass 1 step with half-step gap backtracking + `30%` half-offset Pass 2 verification (`reconcileVerificationPass`), Coverage Audit panel & `Settings > Diagnostics` UI, amber `"Scan may be incomplete"` card state, and `"Copy debug report"` JSON export (`Include sample text` OFF by default).
+  - Fixed 5-minute sender grouping in `lib/transcript.js`, unique TOC month headings and gray-italic `[Unrecognized message]` rendering + summary count across `.docx`, `.txt`, and PDF exports.
+  - Added Messenger HTML/DOM fixtures (`fixtures/messenger_samples.js`) and regression suite (`scratch/test_messenger_bugreport.js`).
 
 ## In Progress
 - None (all tasks completed).
