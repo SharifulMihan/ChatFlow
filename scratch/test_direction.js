@@ -1,12 +1,12 @@
 import assert from 'assert';
 import {
-  geometryVote, nameVote, combineVotes, buildColorModel,
+  geometryVote, nameVote,
   resolveDirection, finalizeSenders, evaluateConfidence,
   swapSides, applySideChoice, sampleSides, quickDirectionCheck,
   toList, formatDirectionDiagnostics
 } from '../content/direction.js';
 import { WhatsAppAdapter } from '../content/adapters/whatsapp.js';
-import { ScanSession, mergeSnapshot, appendDeduplicated, STALL_MS, abortableSleep } from '../content/scanner.js';
+import { ScanSession, mergeSnapshot, appendDeduplicated, abortableSleep } from '../content/scanner.js';
 
 let passed = 0, failed = 0;
 const pending = [];
@@ -22,7 +22,7 @@ function test(name, fn) {
 const PANE = { left: 0, right: 400, width: 400, top: 0, bottom: 800, height: 800 };
 global.getComputedStyle = (node) => ({ backgroundColor: node.__bg || 'rgba(0, 0, 0, 0)' });
 
-function mockRow({ i, mine, cls = true, rect = true, ticks = true, bg = true, name = 'raj', dataIdPrefix = true }) {
+function mockRow({ i, mine, cls = true, rect = true, ticks = true, bg = true, dataIdPrefix = true }) {
   const bubble = {
     __bg: bg ? (mine ? 'rgb(217, 253, 211)' : 'rgb(255, 255, 255)') : 'rgba(0, 0, 0, 0)',
     parentElement: null,
@@ -152,7 +152,7 @@ test('ALL rows return message-in => low-confidence path, never silent 100% one s
   assert.strictEqual(quickDirectionCheck(msgs, 'one-to-one').low, true);
 });
 test('short chat (<50 messages) is not flagged just for being one-sided', () => {
-  const msgs = Array.from({ length: 20 }, (_, i) => ({ type: 'text', isMe: false, dirVotes: { class: false } }));
+  const msgs = Array.from({ length: 20 }, (_, _i) => ({ type: 'text', isMe: false, dirVotes: { class: false } }));
   assert.strictEqual(resolveDirection(msgs, CTX).lowConfidence, false);
 });
 

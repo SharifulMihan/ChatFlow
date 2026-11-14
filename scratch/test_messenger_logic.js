@@ -4,11 +4,7 @@
 
 import {
   cleanMessageText,
-  isPureAccessibilityLabel,
-  isEmojiOnlySender,
-  isReactionOnly,
-  detectDateFormat,
-  parseDateSeparatorText
+  isEmojiOnlySender
 } from '../content/selectors.js';
 
 // Test 1: Alignment Rect Calculation

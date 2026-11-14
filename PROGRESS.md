@@ -1,6 +1,6 @@
 # ChatFlow Build Progress (`PROGRESS.md`)
 
-## Done (100% Complete — v2.4.0)
+## Done (100% Complete — v2.5.0)
 - **Step 0 (Backup)**: Backed up project to `..\chatflow-backup-before-argon`.
 - **Step 1 (Audit)**: Completed full audit in `AUDIT.md` (manifest check, syntax check of all 30 JS files, unit tests passed).
 - **Step 2 (Repair)**:
@@ -42,9 +42,98 @@
   - Implemented `40%` Pass 1 step with half-step gap backtracking + `30%` half-offset Pass 2 verification (`reconcileVerificationPass`), Coverage Audit panel & `Settings > Diagnostics` UI, amber `"Scan may be incomplete"` card state, and `"Copy debug report"` JSON export (`Include sample text` OFF by default).
   - Fixed 5-minute sender grouping in `lib/transcript.js`, unique TOC month headings and gray-italic `[Unrecognized message]` rendering + summary count across `.docx`, `.txt`, and PDF exports.
   - Added Messenger HTML/DOM fixtures (`fixtures/messenger_samples.js`) and regression suite (`scratch/test_messenger_bugreport.js`).
+- **Step 6 (Export Display Redesign & Identity Hardening — Replies, `"Controls and Settings"`, Reactions)**:
+  - **Problem 1 (Distinct Reply Quote Block)**:
+    - Added `formatReplyQuoteParts()` and `truncateQuoteText()` in `lib/transcript.js`; updated `lib/exporter-docx.js`, `lib/exporter-txt.js`, `lib/exporter-pdf.js`, and `sidepanel/sidepanel.js` preview.
+    - Renders quote blocks inside bubbles above the reply text (`4pt` spacing before `10.5pt` reply body): `↪ Replying to <Name>` (`8.5pt` bold non-italic `#6B7280`), `9pt` italic `#6B7280` quote truncated to `140` chars with `"…"`, `3pt` left border (`w:sz="24"`) in quoted person's color, `4pt` internal padding, shaded overlay fill, media chips (`· 🎬 Video`, `· 📷 Photo`, `· 🎤 Voice message`), RTL `w:bidi`, `bubbles` + `compact`, and `color` + `bw`.
+    - Fixed `findReplyQuoteInfo()` in `content/adapters/messenger.js` to walk up single-child wrapper `div`s around `replyHeaderEl` in Fallback 1 and strip stray `"<Name>:"` / `"Original message:"` labels.
+  - **Problem 2 (UI Blocklist & My Name Resolution)**:
+    - Added `isBlockedUiName()`, `validatePersonName()`, `resolveMyExportName()`, and localized blocklist in `content/selectors.js` rejecting `"Controls and settings"`, `"Settings"`, `"Menu"`, `"Profile"`, `"Chats"`, `"Notifications"`, etc.
+    - Hardened `MessengerAdapter.detectMyProfileName()` / `getUserAccountName()`, `WhatsAppAdapter.detectMyProfileName()`, and `content/direction.js` (`pickMyName`, `finalizeSenders`).
+    - Added `"Your name in this export"` inputs (`#ready-my-name`, `#scan-ready-my-name`, `#exp-my-name`, `#setting-my-name`) with `placeholder="Me"` and per-platform persistence (`chatflow_my_name_by_platform`) in `sidepanel/index.html` and `sidepanel/sidepanel.js`.
+  - **Reactions Cleanup**:
+    - Added `parseStructuredReactions()`, `formatReactionChip()`, and `cleanReactionsList()` in `content/selectors.js` to strip `"reaction with"`, `"see who"`, `"reacted to this"`, `"reacted with"`, durations, `"???"`, and duplicates.
+  - **Verified All Checks**:
+    - `node --check` on all 11 modified JS files + `manifest.json` JSON parse: exited `0`.
+    - `node scratch/test_all.js`: **39 / 39 passed**
+    - `node scratch/test_part1_to_4.js`: **14 / 14 passed**
+    - `node scratch/test_direction.js`: **27 / 27 passed**
+    - `node scratch/test_messenger_bugreport.js`: **22 / 22 passed** (including unpacked `word/document.xml` verification).
+- **Step 7 (Completion `"options is not defined"` Fix, ESLint Audit & `"Group messages by sender"` Default OFF)**:
+  - **Bug 1 (`"Scan Notice: options is not defined"`)**:
+    - Fixed missing `options` parameter in `buildTranscript(messages, dateRange = {}, options = DEFAULT_EXPORT_OPTIONS)` in `lib/transcript.js` and added `DEFAULT_EXPORT_OPTIONS` + `normalizeExportOptions()` shared across `lib/transcript.js`, `lib/exporter-docx.js`, `lib/exporter-txt.js`, `lib/exporter-pdf.js`, `background/service-worker.js`, and `sidepanel/sidepanel.js`.
+    - Added `package.json` and `eslint.config.js` (`eslint` `^10.15.0` devDependency, `no-undef` & `no-unused-vars` errors); fixed two additional `no-undef` bugs (`sidepanel/sidepanel.js` `unrecognizedSamples: unrecSamples`, `content/selectors.js` removed `isNoiseMetaLine` check) plus all `no-unused-vars` issues across source and tests.
+    - Wrapped every completion & dashboard sub-step (`stats`, `preferences_and_direction`, `service_worker_save`, `summary_card`, banners, `export_controls`, `export_preview`, charts, `integrity_metrics`, `participants_tab`, `diagnostics_log`) in independent `try/catch` blocks with local `buildStats` fallback; failing sub-steps still show `COMPLETE` results plus amber `#checks-warning-banner` (`"Some checks could not run"` + `"Copy error details"`), logging step/message/stack to `Settings > Diagnostics`; red `"Scan Notice"` (`#state-error` + `"Copy error details"`) appears only for unusable scan data (0 messages).
+    - Installed global `error` and `unhandledrejection` handlers in `sidepanel/sidepanel.js` and `content/content-script.js` (`RUNTIME_ERROR`).
+  - **Bug 2 (`"Group messages by sender"` Always OFF by Default)**:
+    - Set `groupBySender: false` in `DEFAULT_EXPORT_OPTIONS`, `lib/exporter-docx.js`, `lib/exporter-txt.js`, `lib/exporter-pdf.js`, `sidepanel/index.html` (`#exp-group-sender` unchecked), and `sidepanel/sidepanel.js` (`getExportOptions()`).
+    - Added `migrateGroupBySenderSetting()` overwriting any stored `true` with `false` on startup, plus `resetGroupBySenderToggle()` on startup, rescan/new scan (`beginLoadHistory`, `finalizeAndSaveScan`), and immediately after every export (`handleExportDocx`, `handleExportPdf`, `handleExportTxt`).
+  - **Checks & Tests**:
+    - `node --check` on every `.js` file, `npm run lint` (`eslint .`), and `npm test` (`test_all.js`, `test_part1_to_4.js`, `test_direction.js`, `test_messenger_bugreport.js` including BUG 1 & BUG 2 integration tests).
+- **Step 8 (Messenger Single-Block Reply Grouping, Shared Exporters & Noise Hardening)**:
+  - **Messenger Split-Row Reply Grouping (`content/selectors.js`, `content/adapters/messenger.js`)**:
+    - Added `parseReplyLabel()` (English, NFC-normalized Bengali, Spanish, French, German, Portuguese + `"Unknown"` fallback), delegating `isReplyLabel()` and `extractReplySender()`, plus `truncateQuoteText()`, `extractCleanIntroSystemText()`, and `isParticipantOrAvatarNameOnly()`.
+    - Updated `findReplyQuoteInfo()`, `classifyRow()`, `extractMessages()`, and `parseMessengerRow()` to group 1-row, 2-row (`reply_label_and_quote` / `standalone_quote_preview`), and 3-row unstyled `[reply-label] + [quote] + [reply]` splits onto ONLY the first matching-side reply bubble (supporting opposite-side intervening peek, orphan flushing -> `"(reply content not captured)"` with `incomplete: true` & `orphanRepliesCount`, media/sticker/gif/link quotes, and preserving full `chatName` in 1-to-1 chats while falling back to `replierName` in groups).
+    - Deduplicated `intro_block` system notices and stripped leading contact headers + trailing `"Learn more"`, and filtered multi-token partial avatar/participant name rows (e.g. `"Iqbal Mahmood"` on `"Iqbal Mahmood Durjoy"`) as `ui-noise` instead of `UNRECOGNIZED`.
+  - **Unified Normalizer & Shared Exporter Renderers (`content/adapters/whatsapp.js`, `content/scanner.js`, `lib/transcript.js`, `lib/exporter-docx.js`, `lib/exporter-txt.js`, `lib/exporter-pdf.js`)**:
+    - Aligned `WhatsAppAdapter.extractQuote()` and `prepareMessagesForExport()` to one normalized `replyTo` shape (`{ sender, text, type, mediaType, senderIsMe }`); re-exported `truncateQuoteText` from `content/selectors.js` and added `🔗 Link` chip in `detectQuotedMediaType()`; surfaced `orphanRepliesCount` and `unparsedReplyLabelsCount` in `_finalize` audit.
+    - Extracted and exported ONE shared `renderMessageBlock(block, ctx)` helper in `lib/exporter-docx.js` (unified `'E5E7EB'`/`'F0F0F0'` quote box fill) and `lib/exporter-txt.js`, plus added the `"~ Approximate time (Messenger shows exact times only at some points in the chat)."` legend across `.docx`, `.txt`, and `.pdf` summaries.
+  - **Checks & Tests**:
+    - `node --check`: exited `0`; `npm run lint` (`eslint .`): `0` errors, `0` warnings.
+    - `node scratch/test_all.js`: **39 / 39 passed**.
+    - `node scratch/test_part1_to_4.js`: **14 / 14 passed**.
+    - `node scratch/test_direction.js`: **27 / 27 passed**.
+    - `node scratch/test_messenger_bugreport.js`: **32 / 32 passed** (including all split-row reply fixtures, orphan/group/Bengali replies, intro & avatar-name noise hardening, approximate-time legend, and WhatsApp vs Messenger `renderMessageBlock` `.docx` XML & `.txt` snapshot equality).
+- **Step 9 (Icon-Only Messenger Messages, Unique Audit Counters & Pruned DOM Skeletons)**:
+  - **Part 1 (Recognize Icon-Only Messages — `content/selectors.js`, `content/adapters/messenger.js`, `lib/transcript.js`, `lib/exporter-docx.js`, `lib/exporter-txt.js`, `lib/exporter-pdf.js`, `sidepanel/sidepanel.js`)**:
+    - Added `LIKE_LABEL_PATTERNS`, `isLikeLabel()`, `extractRowAccessibilityLabels()`, and `getNodeTextExcludingSvg()` (excluding inline `<svg><title>` text such as `"Thumbs up sign"` from bubbling into plain message text).
+    - Added `extractIconOnlyInfo()` recognizing Messenger Like thumbs-up rows (`role="img"` / `aria-label` / `<svg><title>`, small/medium/large, English + localized variants) as `type: 'like'`, `text: '👍'`, stickers/custom reaction stickers (`type: 'sticker'`), GIFs (`type: 'gif'`), emoji-only `<img>` rows (`type: 'text'` with emoji glyphs — fixing `isAvatarImage()` to return `false` for `isEmojiImage()` so square `<=48px` emoji `<img>` rows are never dropped as `avatar_only_row`), and labeled unknown `[data-scope="message_content"]` icon bubbles (`type: 'other'`, tracked via `otherIconMessagesCount`).
+    - Updated `formatMediaChip()`, `detectQuotedMediaType()`, `.docx`, `.txt`, `.pdf`, and sidepanel preview so `type: 'like'` always renders `"👍"` (never omitted when `showMediaLabels` is OFF; appends muted italic `"Like"` when ON), while stickers/GIFs preserve `mediaDescription`.
+  - **Part 2 (Count Unique Items, Not Per-Snapshot Sightings — `content/adapters/messenger.js`, `content/scanner.js`, `sidepanel/sidepanel.js`)**:
+    - Added `WeakMap`-based row identity + structural/neighbor signature deduplication (`getRowUniqueKey()`, `recordRowAudit()`) exposing `uniqueRowsSeen`, `uniqueSeparators`, `uniqueSystemRows`, `uniqueReplyLabels`, `uniqueNoiseRows`, `uniqueUnrecognized`, `otherIconMessagesCount`, and `sightings` (`{ rowSightings, separatorSightings, systemSightings, replyLabelSightings, noiseSightings, unrecognizedSightings }`), plus deduplicated `resolvedWeekdays` and `rejectedSeparators` with `sightings` counts.
+    - Updated `ScanSession._finalize()` (`this.adapter || this.env?.adapter`) to compute `healthy` from unique counts (`uniqueUnrecognized === 0 && gapsCount === 0 && verificationDifferencesCount === 0 && orphanRepliesCount === 0 && !checksIncomplete && !direction.lowConfidence`) and surface sample descriptors (`direction`, `typeGuess`, semantic label, context) in the incomplete warning banner, checklist, diagnostics log, and Settings metrics.
+  - **Part 3 (Pruned DOM Skeletons & Redaction Privacy — `content/selectors.js`, `content/adapters/messenger.js`, `sidepanel/sidepanel.js`)**:
+    - Added `buildPrunedDomSkeleton(el, { maxChars: 800, includeSampleText })` stripping `class`, `style`, and SVG `d=` path data, collapsing single-child unattributed wrappers, keeping tags/roles/labels/data-* attribute names (`data-scope`/`data-testid` short values) and `<svg><title>`, and capping at `<= 800` chars.
+    - Updated `buildDebugReport(includeSampleText = false)` to emit up to 10 unique `unrecognizedSamples` with `{ id, sightings, scrollTop, direction, typeGuess, labels, skeleton }`, strictly omitting `text`, `textPreview`, `prevMessageText`, and `nextMessageText` and using redacted `[text]` skeletons unless `includeSampleText === true`.
+  - **Checks & Tests**:
+    - `node --check` on all modified JS files & `npm run lint` (`eslint .`): `0` errors, `0` warnings.
+    - `node scratch/test_all.js`: **39 / 39 passed**.
+    - `node scratch/test_part1_to_4.js`: **14 / 14 passed**.
+    - `node scratch/test_direction.js`: **27 / 27 passed**.
+    - `node scratch/test_messenger_bugreport.js`: **37 / 37 passed** (including all Part 10 Like/sticker/GIF/emoji tests, `showMediaLabels` OFF/ON checks, 12-snapshot deduplication, healthy audit checks, pruned skeleton <=800 chars, and `buildDebugReport(false)` privacy redaction).
+- **Step 10 (Smart Verification, WeakMap Parse Cache & Phase UI)**:
+  - **Smart & Optional Pass 2 Verification (`content/scanner.js`, `content/content-script.js`)**:
+    - Added `shouldRunSmartVerification()` and `countReadingOrderDateViolations()` so Pass 2 verification only runs automatically when Pass 1 reports at least one of the 6 triggers: gap/no-overlap event (`noOverlapEventsCount > 0 || gapEvents.length > 0`), `UNRECOGNIZED` unique row, orphan reply, direction-check warning, date-order violation, or step error. Clean Messenger scans skip Pass 2 (`verificationSkipped: true`, `verificationStatus: 'Skipped'`, `verificationLabel: 'Verification: not needed'`); WhatsApp keeps its fast single-pass scan unless `verifyPass: true` or `thoroughVerify: true`.
+    - Added `ScanSession.runOnDemandVerification()`, exported `runOnDemandVerification()`, wired `VERIFY_NOW` + `'verifying'` in `BUSY_STATES`, and recorded `pass1DurationMs` / `pass2DurationMs` + verification status/mode/reasons in `_finalize()` audit.
+  - **Efficient Pass 1 & `WeakMap` Parse Cache (`content/scanner.js`, `content/adapters/messenger.js`)**:
+    - Increased `DOWNWARD_STEP_RATIO` from `0.40` to `0.60` (~40% overlap) with `DOM_QUIET_MS = 300`.
+    - Added `rowParseCache` (`WeakMap`), `getRowCacheStamp()`, `cloneCachedMessage()`, `resetVerificationPassState()`, `classifyCallsCount`, `rowParseCacheHits`, and unique `exportedMessages` Set in `MessengerAdapter` so each live DOM row element is classified/parsed once per pass across overlapping snapshots while preserving `sightings` counts and preventing double counting of `uniqueRowsSeen` or `messagesExported`.
+  - **Settings Toggle, `"Verify now"`, Stepper Phase UI & Audit (`sidepanel/index.html`, `sidepanel/css/components.css`, `sidepanel/sidepanel.js`)**:
+    - Added `"Thorough scan (always verify)"` toggle (`#setting-thorough-scan`, default OFF, persisted as `chatflow_thorough_scan`), completion-card `"Verify now"` button (`#btn-cc-verify-now`), and `#cc-verify-note` (`"Verification: not needed"` / `"Ran"` / `"Recovered N messages"`).
+    - Updated Stepper & Reading card to display `"Reading messages"` during Pass 1 and switch to `"Verifying"` with `#verify-progress-box` / `#verifying-bar` only when verification runs, keeping `#scan-count` / `#scan-count-label` isolated from recounting.
+    - Added `Verification` status and `Pass timings` (`P1 ... · P2 ...`) to the Coverage Audit grid, Settings Integrity & Coverage Audit card, Diagnostics log, and `buildDebugReport()`.
+  - **Checks & Tests**:
+    - Added Part 11 tests in `scratch/test_messenger_bugreport.js`; ran `node --check`, `npm run lint`, and all 4 test suites.
+- **Step 11 (Release Update — v2.4.0 → v2.5.0, Single-Source Versioning, Changelog & Update Safety)**:
+  - **Single Source of Truth (`manifest.json`, `package.json`, `scripts/version-manager.js`, `src/version.js`)**:
+    - Set `manifest.json` `"version": "2.5.0"` and `"version_name": "2.5.0"` as the sole hand-edited version source; added `scripts/version-manager.js` (`check`, `sync`, `bump`, `zip`) to generate `src/version.js` (`APP_VERSION`, `APP_VERSION_TAG`, `APP_DISPLAY_VERSION`, `RELEASE_DATE`, `RELEASE_HIGHLIGHTS`, `CHANGELOG_SUMMARY`, `getExtensionVersion()`), validate repo consistency (including scanning runtime sources for hard-coded version strings), bump patch/minor/major releases, and build clean extension release ZIPs (`chatflow-v2.5.0.zip`, 59 files, 873,633 bytes).
+    - Added `npm run version:check`, `npm run version:sync`, `npm run release:patch`, `npm run release:minor`, `npm run release:major`, and `npm run build:zip`; prepended `version:check` to `npm test`; added `scripts/**/*.js` Node globals override in `eslint.config.js`.
+  - **Version Visibility Everywhere**:
+    - Updated Side Panel (`sidepanel/sidepanel.js`, `sidepanel/index.html`) Settings (`#setting-ext-version`) & footer (`#app-footer-version`) to render `ChatFlow v2.5.0` dynamically via `syncVersionLabels()`.
+    - Updated `buildDebugReport()`, `buildErrorDetailsText()`, and `renderDiagnosticsLog()` to report `getExtensionVersion()`.
+    - Updated exports: `.docx` (`lib/exporter-docx.js`) sets `creator`/`lastModifiedBy`/`description`, custom property `ChatFlowVersion`, `AppProperties` `Application`, summary footer `"Exported with ChatFlow v2.5.0. Nothing leaves your device."`, and page footer; `.txt` (`lib/exporter-txt.js`) & `.pdf` (`lib/exporter-pdf.js`) include versioned headers/footers.
+  - **Changelog, Post-Update Card & Release Guide (`CHANGELOG.md`, `RELEASING.md`, `README.md`, `_locales/*/messages.json`)**:
+    - Added `[Unreleased]` + `[2.5.0] - 2026-11-14` in Keep-a-Changelog format to `CHANGELOG.md`, updated `README.md` badge, and documented the 5-step release workflow in `RELEASING.md`.
+    - Added localized strings (`whatsNewTitle`, `whatsNewSeeChangelog`, `changelogTitle`, `versionMismatchNotice`, `btnReloadTab`) across all 11 `_locales/*/messages.json` files.
+    - Added dismissible `#whats-new-card` shown once per update (`checkAndRenderWhatsNew` / `dismissWhatsNew`) and collapsible `#settings-changelog-box` (`renderSettingsChangelog`).
+  - **Update Safety (`background/service-worker.js`, `content/content-script.js`, `sidepanel/sidepanel.js`)**:
+    - Added keyed, non-throwing `runVersionMigrations()` and `handleInstalled()` (preserves names/preferences, scrubs accidental blocked UI names, forces `chatflow_group_by_sender: false`, deletes `OBSOLETE_STORAGE_KEYS`, records `chatflow_update_notice` only when `reason === 'update'`). Guarded top-level worker listeners with `IS_SERVICE_WORKER_CONTEXT`.
+    - Added content-script/sidepanel version handshake: `content-script.js` returns `version` in `PING`/`SESSION_STATUS` and rejects mismatched `expectedVersion`; `verifyContentScriptVersion()` in `sidepanel/sidepanel.js` catches stale/missing content-script versions, displays `versionMismatchNotice` without overwriting it, and reveals `#btn-reload-tab`.
+  - **Checks & Tests**:
+    - Added Part 12 tests in `scratch/test_messenger_bugreport.js`; ran `npm run lint` (0 errors), `npm run version:check` (PASSED), `npm test` (128/128 passed: `test_all.js` 39/39, `test_part1_to_4.js` 14/14, `test_direction.js` 27/27, `test_messenger_bugreport.js` 48/48), DOM ID parity & 11-locale JSON validation, and `npm run build:zip` (`chatflow-v2.5.0.zip`).
 
 ## In Progress
 - None (all tasks completed).
 
 ## Next
-- Ready for manual verification in Chrome (`chrome://extensions` -> Reload ChatFlow).
+- Reload ChatFlow in `chrome://extensions` (verify `2.5.0` badge, Settings version & Changelog drawer, WhatsApp/Messenger footer & `.docx`/`.txt`/`.pdf` version stamps, and stale-tab reload handshake on already-open chat tabs).

@@ -175,5 +175,20 @@
   },
   "diagnosticsTitle": {
     "message": "Diagnostics"
+  },
+  "whatsNewTitle": {
+    "message": "ChatFlow को v$1 में अपडेट किया गया"
+  },
+  "whatsNewSeeChangelog": {
+    "message": "पूरा चेंजलॉग देखें"
+  },
+  "changelogTitle": {
+    "message": "चेंजलॉग"
+  },
+  "versionMismatchNotice": {
+    "message": "ChatFlow अपडेट हो गया है। अपडेट पूरा करने के लिए इस चैट टैब को रीलोड करें।"
+  },
+  "btnReloadTab": {
+    "message": "टैब रीलोड करें"
   }
 }

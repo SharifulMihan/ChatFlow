@@ -6,11 +6,8 @@
 
 import {
   cleanMessageText,
-  isPureAccessibilityLabel,
   isEmojiOnlySender,
-  isReactionOnly,
-  detectDateFormat,
-  parseDateSeparatorText
+  isReactionOnly
 } from '../content/selectors.js';
 
 console.log('Testing Messenger adapter simulation logic...');

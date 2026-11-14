@@ -175,5 +175,20 @@
   },
   "diagnosticsTitle": {
     "message": "Diagnostics"
+  },
+  "whatsNewTitle": {
+    "message": "ChatFlow telah diperbarui ke v$1"
+  },
+  "whatsNewSeeChangelog": {
+    "message": "Lihat catatan perubahan lengkap"
+  },
+  "changelogTitle": {
+    "message": "Catatan perubahan"
+  },
+  "versionMismatchNotice": {
+    "message": "ChatFlow telah diperbarui. Muat ulang tab obrolan ini untuk menyelesaikan pembaruan."
+  },
+  "btnReloadTab": {
+    "message": "Muat ulang tab"
   }
 }

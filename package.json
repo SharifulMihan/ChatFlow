@@ -1,0 +1,20 @@
+{
+  "name": "chatflow",
+  "version": "2.5.0",
+  "private": true,
+  "description": "ChatFlow Chrome Extension for scanning and exporting WhatsApp Web and Messenger conversations.",
+  "type": "module",
+  "scripts": {
+    "version:check": "node scripts/version-manager.js check",
+    "version:sync": "node scripts/version-manager.js sync",
+    "release:patch": "node scripts/version-manager.js bump patch",
+    "release:minor": "node scripts/version-manager.js bump minor",
+    "release:major": "node scripts/version-manager.js bump major",
+    "build:zip": "node scripts/version-manager.js zip",
+    "lint": "eslint .",
+    "test": "npm run version:check && node scratch/test_all.js && node scratch/test_part1_to_4.js && node scratch/test_direction.js && node scratch/test_messenger_bugreport.js"
+  },
+  "devDependencies": {
+    "eslint": "^10.15.0"
+  }
+}

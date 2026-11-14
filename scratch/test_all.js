@@ -3,7 +3,7 @@
  * Verification suite for ChatFlow scanner state machine, name sanitizer, and top detection.
  */
 
-import { sanitizeChatName, getInitials, INTRO_BLOCK_PATTERNS } from '../content/selectors.js';
+import { sanitizeChatName, getInitials } from '../content/selectors.js';
 import { MessengerAdapter } from '../content/adapters/messenger.js';
 import { WhatsAppAdapter } from '../content/adapters/whatsapp.js';
 
@@ -107,7 +107,7 @@ const mockContainerStatic = {
   clientHeight: 600,
   scrollHeight: 1200,
   innerText: 'First Message Text Here\nOther text',
-  querySelector: (sel) => mockRow
+  querySelector: (_sel) => mockRow
 };
 const trackerStatic = {
   attempts: 6,

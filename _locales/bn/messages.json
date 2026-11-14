@@ -175,5 +175,20 @@
   },
   "diagnosticsTitle": {
     "message": "ডায়াগনস্টিকস"
+  },
+  "whatsNewTitle": {
+    "message": "ChatFlow v$1-এ আপডেট হয়েছে"
+  },
+  "whatsNewSeeChangelog": {
+    "message": "সম্পূর্ণ চেঞ্জলগ দেখুন"
+  },
+  "changelogTitle": {
+    "message": "চেঞ্জলগ"
+  },
+  "versionMismatchNotice": {
+    "message": "ChatFlow আপডেট হয়েছে। আপডেট সম্পূর্ণ করতে এই চ্যাট ট্যাবটি রিলোড করুন।"
+  },
+  "btnReloadTab": {
+    "message": "ট্যাব রিলোড করুন"
   }
 }

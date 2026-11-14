@@ -2,7 +2,7 @@
  * test_messenger_dom_cases.js
  */
 
-import { parseStrictDate, isValidConversationDate } from './test_strict_date_parser.js';
+import { parseStrictDate } from './test_strict_date_parser.js';
 import { isReplyLabel, extractReplySender } from './test_reply_detection.js';
 
 function mockParseMessenger(elements, chatName = 'Nadira Fairuxa', userAccount = 'Me') {
@@ -10,7 +10,6 @@ function mockParseMessenger(elements, chatName = 'Nadira Fairuxa', userAccount =
   let activeDate = null;
   let firstValidDate = null;
   let pendingReply = null;
-  let previousMsg = null;
 
   for (const el of elements) {
     const text = (el.text || '').trim();
@@ -66,7 +65,6 @@ function mockParseMessenger(elements, chatName = 'Nadira Fairuxa', userAccount =
     };
 
     messages.push(msg);
-    previousMsg = msg;
   }
 
   // Back-propagate first valid date to leading messages
@@ -96,7 +94,7 @@ const domItems = [
   { text: "I'm supposed to submit b2's forms to her", align: 'left' }
 ];
 
-const { messages, firstValidDate } = mockParseMessenger(domItems);
+const { messages } = mockParseMessenger(domItems);
 
 console.log('Resulting Messages count:', messages.length);
 messages.forEach((m, idx) => {

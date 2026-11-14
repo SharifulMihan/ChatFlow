@@ -100,9 +100,11 @@ export function getInitials(name) {
 
 export const INTRO_BLOCK_PATTERNS = [
   // English
-  /messages and calls are secured by end-to-end encryption/i,
+  /messages and calls are secured (?:by|with) end-to-end encryption/i,
   /messages and calls are end-to-end encrypted/i,
-  /end-to-end encrypted/i,
+  /end-to-end encrypt(?:ed|ion)/i,
+  /only people in this chat can read, listen to, or share/i,
+  /learn more about (?:end-to-end )?encryption/i,
   /you're connected on messenger/i,
   /say hi to your new messenger friend/i,
   /created this group/i,
@@ -116,12 +118,228 @@ export const INTRO_BLOCK_PATTERNS = [
   /messages and calls are end-to-end encrypted\. no one outside of this chat/i
 ];
 
+/**
+ * Strip leading contact/profile header lines from a conversation intro block row
+ * so only the clean system notice remains (e.g. "Messages and calls are secured with end-to-end encryption.").
+ * @param {string} raw
+ * @returns {string}
+ */
+export function extractCleanIntroSystemText(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  const cleanLines = raw
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .split(/\r?\n+/)
+    .map(l => l.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  if (cleanLines.length === 0) return '';
+
+  const startIdx = cleanLines.findIndex(line => INTRO_BLOCK_PATTERNS.some(rx => rx.test(line)));
+  let sliced = startIdx >= 0 ? cleanLines.slice(startIdx).join(' ') : cleanLines.join(' ');
+
+  // Inline concatenation like "Iqbal Mahmood Durjoy Messages and calls are secured..."
+  const inlineMatch = sliced.match(/(messages and calls are (?:secured|end-to-end)|you're connected on messenger|say hi to your new messenger friend|only people in this chat can read|মেসেজ এবং কলগুলি|এন্ড-টু-এন্ড এনক্রিপ্ট)/i);
+  if (inlineMatch && inlineMatch.index > 0) {
+    sliced = sliced.slice(inlineMatch.index).trim();
+  }
+
+  // Strip trailing CTA link text ("Learn more", "আরও জানুন")
+  sliced = sliced.replace(/\s*(?:learn\s+more|আরও\s+জানুন)\.?\s*$/i, '').trim();
+
+  return sliced.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Normalize and truncate quoted reply text to at most maxChars total characters ending with "…".
+ * @param {string} text
+ * @param {number} [maxChars=140]
+ * @returns {string}
+ */
+export function truncateQuoteText(text, maxChars = 140) {
+  if (!text || typeof text !== 'string') return '';
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+  const chars = Array.from(cleaned);
+  if (chars.length <= maxChars) return cleaned;
+  const cut = Math.max(1, maxChars - 1);
+  return `${chars.slice(0, cut).join('').trimEnd()}…`;
+}
+
 // ─── WhatsApp Older Messages Prompt Patterns ──────────────────────────────────
 
 // ─── Accessibility Message Stripping & Reaction Filtering ───────────────────
 
 export const ACCESSIBILITY_PREFIX_REGEX = /^(?:you\s+sent|sent\s+by\s+you|you:|[^:\n]+\s+sent|enter,\s*message\s*sent|forwarded|seen(?:\s+by\s+[^:\n]+(?:\s+at\s+[^:\n]+)?)?|delivered|sent)\s*[:,\-]?\s*/i;
 export const BENGALI_PREFIX_REGEX = /^(?:আপনি\s+পাঠিয়েছেন|আপনি\s+উত্তর\s+দিয়েছেন|উত্তর\s+দিয়েছেন|দেখা\s+হয়েছে|পাঠানো\s+হয়েছে)\s*[:,\-]?\s*/i;
+
+const REPLY_LABEL_TRIGGER_RX = /(?:replied|respondiste|respondi[oó]|r[ée]pondu|geantwortet|respondeu|উত্তর\s*দিয়েছেন|জবাব\s*দিয়েছেন)/i;
+
+function normalizeReplyLabelText(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/[\u00A0\u202F\u2007\u2009]/g, ' ')
+    .normalize('NFC')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Parse a Messenger/chat reply announcement label into structured attribution data.
+ * Never guesses quoted sender when unparseable (sets quotedSender='Unknown', unparsed=true).
+ * @param {string} str
+ * @param {{ chatName?: string, myName?: string }} [_options={}]
+ * @returns {{ isReply: boolean, replierName: string, replierIsMe: boolean|null, quotedSender: string, senderIsMe: boolean, isSelfReply: boolean, unparsed: boolean, rawLabel: string }}
+ */
+export function parseReplyLabel(str, options = {}) {
+  const empty = {
+    isReply: false,
+    replierName: '',
+    replierIsMe: null,
+    quotedSender: '',
+    senderIsMe: false,
+    isSelfReply: false,
+    unparsed: false,
+    rawLabel: ''
+  };
+  const s = normalizeReplyLabelText(str);
+  if (!s || s.length > 90) return empty;
+  if (/[?!]/.test(s)) return empty;
+  if (!REPLY_LABEL_TRIGGER_RX.test(s)) return empty;
+
+  const rawMyName = options && typeof options.myName === 'string' ? options.myName.trim() : '';
+  const meLabel = (rawMyName && !isBlockedUiName(rawMyName)) ? rawMyName : 'Me';
+  const mk = (replierName, replierIsMe, quotedSender, senderIsMe, isSelfReply = false, unparsed = false) => ({
+    isReply: true,
+    replierName: (replierIsMe && replierName === 'Me') ? meLabel : replierName,
+    replierIsMe,
+    quotedSender: (senderIsMe && quotedSender === 'Me') ? meLabel : quotedSender,
+    senderIsMe,
+    isSelfReply,
+    unparsed,
+    rawLabel: s
+  });
+
+  // ── English ──
+  if (/^you\s+replied\s+to\s+yourself$/i.test(s)) {
+    return mk('Me', true, 'Me', true, true, false);
+  }
+  let m = s.match(/^you\s+replied\s+to\s+([^\n:]{1,45})$/i);
+  if (m) {
+    const target = m[1].trim();
+    if (/^(?:you|yourself|me)$/i.test(target)) return mk('Me', true, 'Me', true, true, false);
+    return mk('Me', true, target, false, false, false);
+  }
+  m = s.match(/^([^\n:]{1,45}?)\s+replied\s+to\s+you$/i);
+  if (m) {
+    const replier = m[1].trim();
+    if (isLocalizedYou(replier)) return mk('Me', true, 'Me', true, true, false);
+    return mk(replier, false, 'Me', true, false, false);
+  }
+  m = s.match(/^([^\n:]{1,45}?)\s+replied\s+to\s+(?:themselves|himself|herself|self)$/i);
+  if (m) {
+    const replier = m[1].trim();
+    if (isLocalizedYou(replier)) return mk('Me', true, 'Me', true, true, false);
+    return mk(replier, false, replier, false, true, false);
+  }
+  m = s.match(/^([^\n:]{1,45}?)\s+replied\s+to\s+([^\n:]{1,45})$/i);
+  if (m) {
+    const replier = m[1].trim();
+    const target = m[2].trim();
+    const rIsMe = isLocalizedYou(replier);
+    const tIsMe = isLocalizedYou(target);
+    const isSelf = rIsMe ? tIsMe : replier.toLowerCase() === target.toLowerCase();
+    return mk(rIsMe ? 'Me' : replier, rIsMe, tIsMe ? 'Me' : target, tIsMe, isSelf, false);
+  }
+
+  // ── Bengali (NFC normalized) ──
+  if (/^আপনি\s+নিজেকে\s+(?:উত্তর|জবাব)\s+দিয়েছেন$/.test(s)) {
+    return mk('Me', true, 'Me', true, true, false);
+  }
+  m = s.match(/^আপনি\s+([^\n:]{1,45}?)(?:\s*-?\s*কে)\s+(?:উত্তর|জবাব)\s+দিয়েছেন$/);
+  if (m) {
+    const target = m[1].trim();
+    return mk('Me', true, target, false, false, false);
+  }
+  m = s.match(/^([^\n:]{1,45}?)\s+আপনাকে\s+(?:উত্তর|জবাব)\s+দিয়েছেন$/);
+  if (m) {
+    const replier = m[1].trim();
+    return mk(replier, false, 'Me', true, false, false);
+  }
+  m = s.match(/^([^\n:]{1,45}?)\s+নিজেকে\s+(?:উত্তর|জবাব)\s+দিয়েছেন$/);
+  if (m) {
+    const replier = m[1].trim();
+    return mk(replier, false, replier, false, true, false);
+  }
+  m = s.match(/^([^\n:]{1,45}?)\s+([^\n:]{1,45}?)(?:\s*-?\s*কে)\s+(?:উত্তর|জবাব)\s+দিয়েছেন$/);
+  if (m) {
+    const replier = m[1].trim();
+    const target = m[2].trim();
+    return mk(replier, replier === 'আপনি', target, target === 'আপনাকে', replier === target, false);
+  }
+
+  // ── Spanish ──
+  if (/^respondiste\s+a\s+ti\s+mismo$/i.test(s)) {
+    return mk('Me', true, 'Me', true, true, false);
+  }
+  m = s.match(/^respondiste\s+a\s+([^\n:]{1,45})$/i);
+  if (m) return mk('Me', true, m[1].trim(), false, false, false);
+  m = s.match(/^([^\n:]{1,45}?)\s+te\s+respondi[oó]$/i);
+  if (m) return mk(m[1].trim(), false, 'Me', true, false, false);
+  m = s.match(/^([^\n:]{1,45}?)\s+se\s+respondi[oó]\s+a\s+s[ií]\s+mismo$/i);
+  if (m) return mk(m[1].trim(), false, m[1].trim(), false, true, false);
+  m = s.match(/^([^\n:]{1,45}?)\s+respondi[oó]\s+a\s+([^\n:]{1,45})$/i);
+  if (m) return mk(m[1].trim(), false, m[2].trim(), false, m[1].trim().toLowerCase() === m[2].trim().toLowerCase(), false);
+
+  // ── French ──
+  m = s.match(/^(?:vous\s+avez\s+r[ée]pondu|tu\s+as\s+r[ée]pondu)\s+[àa]\s+([^\n:]{1,45})$/i);
+  if (m) {
+    const target = m[1].trim();
+    const isSelf = /^(?:vous-m[êe]me|toi-m[êe]me)$/i.test(target);
+    return mk('Me', true, isSelf ? 'Me' : target, isSelf, isSelf, false);
+  }
+  m = s.match(/^([^\n:]{1,45}?)\s+(?:vous|t')\s*a\s+r[ée]pondu$/i);
+  if (m) return mk(m[1].trim(), false, 'Me', true, false, false);
+  m = s.match(/^([^\n:]{1,45}?)\s+a\s+r[ée]pondu\s+[àa]\s+([^\n:]{1,45})$/i);
+  if (m) return mk(m[1].trim(), false, m[2].trim(), false, m[1].trim().toLowerCase() === m[2].trim().toLowerCase(), false);
+
+  // ── German ──
+  m = s.match(/^du\s+hast\s+([^\n:]{1,45}?)\s+geantwortet$/i);
+  if (m) {
+    const target = m[1].trim();
+    const isSelf = /^dir\s+selbst$/i.test(target);
+    return mk('Me', true, isSelf ? 'Me' : target, isSelf, isSelf, false);
+  }
+  m = s.match(/^([^\n:]{1,45}?)\s+hat\s+dir\s+geantwortet$/i);
+  if (m) return mk(m[1].trim(), false, 'Me', true, false, false);
+  m = s.match(/^([^\n:]{1,45}?)\s+hat\s+([^\n:]{1,45}?)\s+geantwortet$/i);
+  if (m) return mk(m[1].trim(), false, m[2].trim(), false, m[1].trim().toLowerCase() === m[2].trim().toLowerCase(), false);
+
+  // ── Portuguese ──
+  m = s.match(/^voc[êe]\s+respondeu\s+(?:a|para)\s+([^\n:]{1,45})$/i);
+  if (m) {
+    const target = m[1].trim();
+    const isSelf = /^si\s+mesmo$/i.test(target);
+    return mk('Me', true, isSelf ? 'Me' : target, isSelf, isSelf, false);
+  }
+  m = s.match(/^([^\n:]{1,45}?)\s+respondeu\s+(?:a|para)\s+voc[êe]$/i);
+  if (m) return mk(m[1].trim(), false, 'Me', true, false, false);
+  m = s.match(/^([^\n:]{1,45}?)\s+respondeu\s+(?:a|para)\s+([^\n:]{1,45})$/i);
+  if (m) return mk(m[1].trim(), false, m[2].trim(), false, m[1].trim().toLowerCase() === m[2].trim().toLowerCase(), false);
+
+  // ── Generic short/unparsed fallback without guessing quoted sender ──
+  if (/^you\s+replied(?:\s+to)?$/i.test(s) || /^আপনি\s+(?:উত্তর|জবাব)\s+দিয়েছেন$/.test(s)) {
+    return mk('Me', true, 'Unknown', false, false, true);
+  }
+  m = s.match(/^([^\n:]{2,35}?)\s+(?:replied(?:\s+to)?|(?:উত্তর|জবাব)\s+দিয়েছেন)$/);
+  if (m && m[1].trim().split(/\s+/).length <= 4) {
+    const replier = m[1].trim();
+    const rIsMe = isLocalizedYou(replier);
+    return mk(rIsMe ? 'Me' : replier, rIsMe ? true : false, 'Unknown', false, false, true);
+  }
+
+  return empty;
+}
 
 /**
  * Check if a string is a reply announcement label (e.g. "Nadira Fairuxa replied to you").
@@ -130,43 +348,17 @@ export const BENGALI_PREFIX_REGEX = /^(?:আপনি\s+পাঠিয়েছে
  * @returns {boolean}
  */
 export function isReplyLabel(str) {
-  if (!str || typeof str !== 'string') return false;
-  const s = str.trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
-  if (!s || s.length > 80) return false;
-  return /^(?:you|[^\n:]+?)\s+replied(?:\s+to\s+(?:you|[^\n:]+?)|to\s+yourself|to\s+themselves)?$/i.test(s) ||
-         /^(?:আপনি|[^\n:]+?)\s+উত্তর\s+দিয়েছেন/i.test(s);
+  return parseReplyLabel(str).isReply;
 }
 
 /**
- * Extract replier's name from a reply label string.
+ * Extract quoted sender's name from a reply label string ("You replied to X" -> X, "X replied to you" -> "Me").
  * @param {string} str
  * @returns {string}
  */
 export function extractReplySender(str) {
-  if (!str || typeof str !== 'string') return '';
-  const s = str.trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
-  // Match "X replied to Y" or "You replied to Y" or "X replied to you"
-  const mTo = s.match(/(?:replied\s+to|উত্তর\s+দিয়েছেন(?:\s+কাউকে)?)\s+(you|yourself|themselves|আপনাকে|[^\n:]+)/i);
-  if (mTo) {
-    const target = mTo[1].trim();
-    if (/^(?:you|আপনাকে)$/i.test(target)) return 'Me';
-    if (/^(?:yourself|themselves)$/i.test(target)) {
-      const mAuthor = s.match(/^([^\n:]+?)\s+replied/i);
-      return mAuthor ? (mAuthor[1].toLowerCase() === 'you' ? 'Me' : mAuthor[1].trim()) : '';
-    }
-    return target;
-  }
-  const m = s.match(/^([^\n:]+?)\s+replied/i);
-  if (m) {
-    const replier = m[1].trim();
-    return replier.toLowerCase() === 'you' ? 'Me' : replier;
-  }
-  const bnM = s.match(/^([^\n:]+?)\s+উত্তর\s+দিয়েছেন/i);
-  if (bnM) {
-    const replier = bnM[1].trim();
-    return replier === 'আপনি' ? 'Me' : replier;
-  }
-  return '';
+  const parsed = parseReplyLabel(str);
+  return parsed.isReply ? parsed.quotedSender : '';
 }
 
 /**
@@ -184,7 +376,7 @@ export function isPureAccessibilityLabel(str) {
   if (isReplyLabel(s)) return true;
 
   return /^(?:you\s+sent|sent\s+by\s+you|you:|[^:\n]+\s+sent|enter,\s*message\s*sent|forwarded(?:\s+an?\s+(?:image|photo|video|message|file|attachment))?|[^:\n]+\s+forwarded(?:\s+an?\s+(?:image|photo|video|message|file|attachment))?|seen(?:\s+by\s+.*)?|delivered|sent|active\s+now)$/i.test(s) ||
-         /^(?:আপনি\s+পাঠিয়েছেন|আপনি\s+উত্তর\s+দিয়েছেন|উত্তর\s+দিয়েছেন|দেখা\s+হয়েছে|পাঠানো\s+হয়েছে)$/i.test(s);
+    /^(?:আপনি\s+পাঠিয়েছেন|আপনি\s+উত্তর\s+দিয়েছেন|উত্তর\s+দিয়েছেন|দেখা\s+হয়েছে|পাঠানো\s+হয়েছে)$/i.test(s);
 }
 
 /**
@@ -239,74 +431,230 @@ export function containsEmojiGlyph(str) {
   return /\p{Extended_Pictographic}|\p{Emoji_Presentation}/u.test(str);
 }
 
-/**
- * Extract only real emoji reactions (with optional reactor name) from raw reaction text/DOM.
- * Never allows durations ("0:19"), "???", or arbitrary text as reactions.
- * @param {Element|null} el
- * @param {string} [rawText='']
- * @returns {string[]}
- */
-export function extractValidReactions(el = null, rawText = '') {
-  if (Array.isArray(el)) {
-    const out = [];
-    const seenArr = new Set();
-    for (const item of el) {
-      const s = typeof item === 'string' ? item.trim() : '';
-      if (!s || isDurationChipText(s) || /\?{2,}/.test(s) || !containsEmojiGlyph(s)) continue;
-      // Preserve "Reactor 😂" if formatted cleanly, otherwise parse tokens from string
-      const cleaned = s.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, '').replace(/\s+/g, ' ').trim();
-      const parsed = extractValidReactions(null, cleaned);
-      const val = (cleaned.length <= 40 && parsed.length === 1 && cleaned.includes(parsed[0]))
-        ? cleaned.replace(/\s+\d+$/, '').trim()
-        : (parsed[0] || '');
-      if (val && !seenArr.has(val)) {
-        seenArr.add(val);
-        out.push(val);
-      }
-    }
-    return out;
-  }
+const REACTION_EMOJI_RE = /(?:\p{Extended_Pictographic}|\p{Emoji_Presentation})(?:\uFE0F|\u200D(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}))*/gu;
 
-  const results = [];
-  const seen = new Set();
-  const addReaction = (emoji, reactor = '') => {
+function stripReactionAccessibilityNoise(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0\u202F]/g, ' ')
+    .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, ' ')
+    .replace(/\?{2,}/g, ' ')
+    .replace(/\bsee\s+who(?:\s+reacted(?:\s+to\s+this)?)?\b/gi, ' ')
+    .replace(/\bclick\s+to\s+see(?:\s+who(?:\s+reacted)?)?\b/gi, ' ')
+    .replace(/\breacted\s+to\s+this\b/gi, ' ')
+    .replace(/\breacted\s+with\b/gi, ' ')
+    .replace(/\b\d*\s*reactions?\s+with\b/gi, ' ')
+    .replace(/^(?:reactions?:?\s*)/i, ' ')
+    .replace(/[;|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Format one structured reaction entry as "😂 Sudipta Roy", "😂 2", or "😂".
+ * @param {{ emoji: string, reactors?: string[], count?: number }} entry
+ * @returns {string}
+ */
+export function formatReactionChip(entry) {
+  if (!entry || !entry.emoji) return '';
+  const emoji = String(entry.emoji).trim();
+  const reactors = Array.isArray(entry.reactors) ? entry.reactors.filter(Boolean) : [];
+  const count = Number(entry.count) || 1;
+  if (reactors.length === 1 && count <= 1) {
+    return `${emoji} ${reactors[0]}`;
+  }
+  if (reactors.length > 1 && count <= reactors.length) {
+    return `${emoji} ${reactors.join(', ')}`;
+  }
+  if (count > 1) {
+    return `${emoji} ${count}`;
+  }
+  if (reactors.length === 1) {
+    return `${emoji} ${reactors[0]}`;
+  }
+  return emoji;
+}
+
+/**
+ * Parse raw reaction DOM / strings / arrays into structured deduplicated entries:
+ * [{ emoji, reactor, reactors, count }]
+ * Strips "reaction with", "see who", "reacted to this", durations ("0:19"), and duplicates.
+ * @param {Element|string[]|null} [el=null]
+ * @param {string} [rawText='']
+ * @param {{ myName?: string }} [options={}]
+ * @returns {Array<{ emoji: string, reactor: string, reactors: string[], count: number }>}
+ */
+export function parseStructuredReactions(el = null, rawText = '', options = {}) {
+  const byEmoji = new Map();
+
+  const record = (emoji, reactor = '', count = 1) => {
     const cleanEmoji = (emoji || '').trim();
     if (!cleanEmoji || !containsEmojiGlyph(cleanEmoji)) return;
     if (isDurationChipText(cleanEmoji) || /\?{2,}/.test(cleanEmoji)) return;
-    const cleanReactor = (reactor || '')
-      .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, '')
-      .replace(/^(?:reactions?:?\s*)/i, '')
-      .replace(/\?{2,}/g, '')
+
+    let cleanReactor = stripReactionAccessibilityNoise(reactor || '');
+    if (/^(?:you|me|yourself)$/i.test(cleanReactor)) {
+      cleanReactor = options.myName && !isBlockedUiName(options.myName) ? options.myName : '';
+    } else if (cleanReactor) {
+      const validated = validatePersonName(cleanReactor);
+      cleanReactor = validated || '';
+    }
+
+    const numCount = Math.max(1, parseInt(count, 10) || 1);
+    if (!byEmoji.has(cleanEmoji)) {
+      byEmoji.set(cleanEmoji, {
+        emoji: cleanEmoji,
+        reactors: new Set(),
+        count: numCount
+      });
+    }
+    const bucket = byEmoji.get(cleanEmoji);
+    if (cleanReactor) bucket.reactors.add(cleanReactor);
+    if (numCount > bucket.count) bucket.count = numCount;
+  };
+
+  const parseString = (input) => {
+    if (!input || typeof input !== 'string') return;
+    const normalized = input
+      .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0\u202F]/g, ' ')
       .trim();
-    const label = cleanReactor ? `${cleanReactor} ${cleanEmoji}` : cleanEmoji;
-    if (!seen.has(label)) {
-      seen.add(label);
-      results.push(label);
+    if (!normalized || isDurationChipText(normalized) || /\?{2,}/.test(normalized)) return;
+
+    const clauses = normalized.split(/[;\n]+/).map(c => c.trim()).filter(Boolean);
+    for (const clause of clauses) {
+      if (!containsEmojiGlyph(clause)) continue;
+      if (/^\s*see\s+who\b/i.test(clause)) continue;
+
+      const countWithRx = new RegExp(`(\\d+)\\s+reactions?\\s+with\\s+(${REACTION_EMOJI_RE.source})`, 'giu');
+      let m;
+      let matchedStructured = false;
+      while ((m = countWithRx.exec(clause)) !== null) {
+        record(m[2], '', parseInt(m[1], 10) || 1);
+        matchedStructured = true;
+      }
+
+      const cleanedForName = clause
+        .replace(/\b\d*\s*reactions?\s+with\s+(?:\p{Extended_Pictographic}|\p{Emoji_Presentation})(?:\uFE0F|\u200D(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}))*/giu, '')
+        .replace(/\bsee\s+who(?:\s+reacted(?:\s+to\s+this)?)?\b/gi, '')
+        .replace(/\breacted\s+to\s+this\b/gi, '')
+        .trim();
+
+      const whoReactedRx = new RegExp(`^([^\\d,;]+?)\\s+reacted(?:\\s+with)?\\s+(${REACTION_EMOJI_RE.source})`, 'iu');
+      const wm = cleanedForName.match(whoReactedRx);
+      if (wm) {
+        record(wm[2], wm[1], 1);
+        matchedStructured = true;
+      }
+
+      const cleaned = stripReactionAccessibilityNoise(clause);
+      if (cleaned && containsEmojiGlyph(cleaned)) {
+        const emCountRx = new RegExp(`(${REACTION_EMOJI_RE.source})\\s*(\\d+)\\b`, 'gu');
+        let cm;
+        while ((cm = emCountRx.exec(cleaned)) !== null) {
+          record(cm[1], '', parseInt(cm[2], 10) || 1);
+          matchedStructured = true;
+        }
+
+        if (!matchedStructured) {
+          const emNameRx = new RegExp(`^(${REACTION_EMOJI_RE.source})\\s+([^\\d]+)$`, 'u');
+          const enm = cleaned.match(emNameRx);
+          if (enm && !containsEmojiGlyph(enm[2])) {
+            record(enm[1], enm[2], 1);
+            matchedStructured = true;
+          }
+
+          const nameEmRx = new RegExp(`^([^\\d]+?)\\s+(${REACTION_EMOJI_RE.source})$`, 'u');
+          const nem = cleaned.match(nameEmRx);
+          if (nem && !containsEmojiGlyph(nem[1])) {
+            record(nem[2], nem[1], 1);
+            matchedStructured = true;
+          }
+        }
+
+        if (!matchedStructured) {
+          const emojiMatches = cleaned.match(REACTION_EMOJI_RE) || [];
+          for (const em of emojiMatches) {
+            record(em, '', 1);
+          }
+        }
+      }
     }
   };
 
-  if (el && typeof el.querySelectorAll === 'function') {
+  if (Array.isArray(el)) {
+    for (const item of el) {
+      if (typeof item === 'string') {
+        parseString(item);
+      } else if (item && typeof item === 'object' && item.emoji) {
+        const reactor = item.reactor || (Array.isArray(item.reactors) ? item.reactors[0] : '') || '';
+        record(item.emoji, reactor, item.count || 1);
+      }
+    }
+  } else if (typeof el === 'string') {
+    parseString(el);
+  } else if (el && typeof el.querySelectorAll === 'function') {
     const imgs = el.querySelectorAll('img[alt]');
+    const elAria = (el.getAttribute?.('aria-label') || '').trim();
+    if (elAria) parseString(elAria);
+
+    const ariaNodes = el.querySelectorAll('[aria-label]');
+    for (const node of ariaNodes) {
+      const a = (node.getAttribute('aria-label') || '').trim();
+      if (a) parseString(a);
+    }
+
     for (const img of imgs) {
       const alt = (img.getAttribute('alt') || '').trim();
-      const parentAria = (img.parentElement?.getAttribute?.('aria-label') || el.getAttribute?.('aria-label') || '').trim();
+      const parentAria = (img.parentElement?.getAttribute?.('aria-label') || elAria || '').trim();
       if (containsEmojiGlyph(alt)) {
-        const reactorMatch = parentAria.match(/^(.+?)\s+reacted\s+/i);
-        addReaction(alt, reactorMatch ? reactorMatch[1] : '');
+        if (parentAria) parseString(parentAria);
+        record(alt, '', 1);
       }
     }
   }
 
-  const s = (rawText || '').replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0\u202F]/g, ' ').trim();
-  if (s && containsEmojiGlyph(s)) {
-    const stripped = s.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, '').replace(/\?{2,}/g, '').trim();
-    const emojiMatches = stripped.match(/(?:\p{Extended_Pictographic}|\p{Emoji_Presentation})(?:\uFE0F|\u200D(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}))*/gu) || [];
-    for (const em of emojiMatches) {
-      addReaction(em);
-    }
+  if (rawText) {
+    parseString(rawText);
   }
 
-  return results;
+  return Array.from(byEmoji.values()).map(b => {
+    const reactors = Array.from(b.reactors);
+    const count = Math.max(b.count, reactors.length || 1);
+    return {
+      emoji: b.emoji,
+      reactor: reactors[0] || '',
+      reactors,
+      who: reactors,
+      count
+    };
+  });
+}
+
+/**
+ * Normalize an existing reactions array/string into clean formatted strings.
+ * @param {string[]|string} reactions
+ * @param {{ myName?: string }} [options={}]
+ * @returns {string[]}
+ */
+export function cleanReactionsList(reactions, options = {}) {
+  if (!reactions) return [];
+  const input = Array.isArray(reactions) ? reactions : [String(reactions)];
+  const structured = parseStructuredReactions(input, '', options);
+  return structured.map(formatReactionChip).filter(Boolean);
+}
+
+/**
+ * Extract only real emoji reactions (with optional reactor name or count) from raw reaction text/DOM.
+ * Formats cleanly as "😂 Sudipta Roy", "😂 2", or "😂".
+ * Never allows durations ("0:19"), "???", "reaction with", "see who", or duplicates.
+ * @param {Element|string[]|null} [el=null]
+ * @param {string} [rawText='']
+ * @param {{ myName?: string }} [options={}]
+ * @returns {string[]}
+ */
+export function extractValidReactions(el = null, rawText = '', options = {}) {
+  const structured = parseStructuredReactions(el, rawText, options);
+  return structured.map(formatReactionChip).filter(Boolean);
 }
 
 /**
@@ -427,7 +775,7 @@ export function detectDateFormat(separatorStrings) {
     const sample = new Intl.DateTimeFormat().format(new Date(2025, 11, 25)); // Dec 25
     if (sample.startsWith('12')) return 'MDY';
     if (sample.startsWith('25')) return 'DMY';
-  } catch (_) {}
+  } catch (_) { }
 
   return 'MDY';
 }
@@ -797,13 +1145,347 @@ export function isLocalizedYou(name) {
   return LOCALIZED_YOU_NAMES.has(norm);
 }
 
+// ─── UI Name Blocklist & Person Name Validation ─────────────────────────────
+
+export const UI_NAME_BLOCKLIST_EXACT = new Set([
+  // English Messenger / Facebook / WhatsApp interface labels
+  'controls and settings',
+  'account controls and settings',
+  'settings',
+  'settings and privacy',
+  'menu',
+  'main menu',
+  'profile',
+  'your profile',
+  'my profile',
+  'account',
+  'your account',
+  'accounts',
+  'chats',
+  'chat',
+  'messenger',
+  'facebook',
+  'whatsapp',
+  'notifications',
+  'notification',
+  'marketplace',
+  'more',
+  'more options',
+  'search',
+  'close',
+  'back',
+  'info',
+  'information',
+  'conversation information',
+  'chat info',
+  'call',
+  'voice call',
+  'audio call',
+  'video call',
+  'video chat',
+  'people',
+  'requests',
+  'message requests',
+  'archive',
+  'archived chats',
+  'communities',
+  'help',
+  'log out',
+  'logout',
+  'switch account',
+  'preferences',
+  'privacy',
+  'security',
+  'theme',
+  'dark mode',
+  'new message',
+  'compose',
+  'mute',
+  'unmute',
+  'pin',
+  'unpin',
+  'delete',
+  'report',
+  'block',
+  'active now',
+  'online',
+  'offline',
+  // Bengali
+  'সেটিংস',
+  'নিয়ন্ত্রণ ও সেটিংস',
+  'প্রোফাইল',
+  'আপনার প্রোফাইল',
+  'অ্যাকাউন্ট',
+  'চ্যাট',
+  'মেসেঞ্জার',
+  'ফেসবুক',
+  'মেনু',
+  'বিজ্ঞপ্তি',
+  'মার্কেটপ্লেস',
+  'আরও',
+  'অনুসন্ধান',
+  'বন্ধ করুন',
+  'ফিরে যান',
+  'তথ্য',
+  'কল',
+  'ভিডিও চ্যাট',
+  'ভয়েস কল',
+  'ভিডিও কল',
+  // Spanish
+  'controles y configuración',
+  'controles y configuracion',
+  'configuración',
+  'configuracion',
+  'menú',
+  'perfil',
+  'tu perfil',
+  'cuenta',
+  'notificaciones',
+  'buscar',
+  'cerrar',
+  'atrás',
+  'atras',
+  'información',
+  'informacion',
+  'llamada',
+  'videochat',
+  // French
+  'contrôles et paramètres',
+  'controles et parametres',
+  'paramètres',
+  'parametres',
+  'profil',
+  'votre profil',
+  'compte',
+  'notifications',
+  'rechercher',
+  'fermer',
+  'retour',
+  'infos',
+  'appel',
+  'discussion vidéo',
+  'discussion video',
+  // German
+  'steuerungen und einstellungen',
+  'einstellungen',
+  'menü',
+  'profil',
+  'dein profil',
+  'konto',
+  'benachrichtigungen',
+  'suchen',
+  'schließen',
+  'zurück',
+  'anruf',
+  // Portuguese
+  'controles e configurações',
+  'controles e configuracoes',
+  'configurações',
+  'configuracoes',
+  'seu perfil',
+  'conta',
+  'notificações',
+  'notificacoes',
+  'pesquisar',
+  'fechar',
+  'voltar',
+  'informações',
+  'informacoes',
+  'chamada',
+  'conversa de vídeo',
+  'conversa de video',
+  // Hindi / Arabic / Indonesian / Turkish / Vietnamese
+  'सेटिंग्स',
+  'प्रोफ़ाइल',
+  'खाता',
+  'الإعدادات',
+  'الملف الشخصي',
+  'الحساب',
+  'pengaturan',
+  'profil',
+  'akun',
+  'ayarlar',
+  'hesap',
+  'cài đặt',
+  'hồ sơ',
+  'tài khoản'
+]);
+
+export const UI_NAME_BLOCKLIST_SUBSTRINGS = [
+  'controls and settings',
+  'account controls',
+  'settings and privacy',
+  'settings & privacy',
+  'your profile',
+  'conversation info',
+  'conversation information',
+  'chat info',
+  'video chat',
+  'audio call',
+  'voice call',
+  'video call',
+  'account menu',
+  'main menu',
+  'navigation',
+  'notifications',
+  'marketplace',
+  'archived chats',
+  'message requests',
+  'switch account',
+  'log out'
+];
+
+const UI_NAME_BLOCKLIST_RX = /\b(?:controls\s+and\s+settings|account\s+controls|settings\s*(?:and|&)\s*privacy|your\s+profile|video\s+chat|conversation\s+info(?:rmation)?|click\s+to\s+see|see\s+who\s+reacted)\b/i;
+
+/**
+ * Return true if a candidate string is a Messenger/WhatsApp UI label rather than a person name.
+ * Matches case-insensitively and by substring for label-like strings.
+ * @param {string} raw
+ * @returns {boolean}
+ */
+export function isBlockedUiName(raw) {
+  if (!raw || typeof raw !== 'string') return false;
+  const s = raw
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[:\s\-·|]+|[:\s\-·|]+$/g, '')
+    .trim()
+    .toLowerCase();
+  if (!s) return false;
+  if (UI_NAME_BLOCKLIST_EXACT.has(s)) return true;
+  if (UI_NAME_BLOCKLIST_RX.test(s)) return true;
+  for (const sub of UI_NAME_BLOCKLIST_SUBSTRINGS) {
+    if (s.includes(sub)) return true;
+  }
+  const parts = s.split(/\s*[·|:\-]\s*/).map(p => p.trim()).filter(Boolean);
+  if (parts.length > 1 && parts.every(p => UI_NAME_BLOCKLIST_EXACT.has(p))) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Validate a candidate detected person name.
+ * Accepts only if: not in blocklist, 2-60 chars, not time/date, not only symbols,
+ * not generic placeholder ("me"/"you"/"unknown"), and not identical to contactName.
+ * @param {string} raw
+ * @param {{ contactName?: string }} [options={}]
+ * @returns {string|null}
+ */
+export function validatePersonName(raw, options = {}) {
+  if (!raw || typeof raw !== 'string') return null;
+  let s = raw.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '');
+  s = s.replace(/\s+/g, ' ').replace(/^[:\s]+|[:\s]+$/g, '').trim();
+  if (!s) return null;
+  if (s.length < 2 || s.length > 60) return null;
+  if (isBlockedUiName(s)) return null;
+  if (/^(?:me|you|yourself|unknown|user|sender|contact|participant|null|undefined)$/i.test(s)) return null;
+  if (isLocalizedYou(s)) return null;
+  if (isTimeOrDateString(s)) return null;
+  if (isEmojiOnlySender(s)) return null;
+  const contactName = typeof options === 'string' ? options : (options?.contactName || '');
+  if (contactName && typeof contactName === 'string') {
+    const cNorm = contactName.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (cNorm && s.toLowerCase() === cNorm) return null;
+  }
+  return s;
+}
+
+/**
+ * Resolve final display name for "me" following strict source priority:
+ * 1. Explicit user setting ("My name in exports") if non-empty & not a blocked UI string.
+ * 2. Validated detected name from the page (not blocklist, 2-60 chars, != contactName, etc.).
+ * 3. Fallback: "Me".
+ * @param {{ myNameSetting?: string, settingName?: string, myName?: string, detectedName?: string, contactName?: string }} [params={}]
+ * @returns {string}
+ */
+export function resolveMyExportName(params = {}) {
+  const { detectedName = '', contactName = '' } = params || {};
+  const rawSetting = params?.myNameSetting ?? params?.settingName ?? params?.myName ?? '';
+  if (typeof rawSetting === 'string') {
+    const trimmed = rawSetting
+      .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (trimmed && !isBlockedUiName(trimmed)) {
+      return trimmed.slice(0, 60);
+    }
+  }
+  const validDetected = validatePersonName(detectedName, { contactName });
+  if (validDetected) return validDetected;
+  return 'Me';
+}
+
+const GENERIC_PLACEHOLDER_NAMES = new Set([
+  'me', 'you', 'contact', 'messenger chat', 'whatsapp chat',
+  'unknown chat', 'chat', 'unknown', 'system', 'conversation'
+]);
+
+/**
+ * Return true when a candidate text/label is purely a participant's or contact's name
+ * (exact match or contiguous word subset such as "Iqbal Mahmood" for "Iqbal Mahmood Durjoy").
+ * Used to filter standalone avatar/sender labels and prevent "[Unrecognized message] <Name>".
+ * @param {string} raw
+ * @param {{ chatName?: string, myName?: string, detectedMyName?: string, knownSenders?: string[] }} [options={}]
+ * @returns {boolean}
+ */
+export function isParticipantOrAvatarNameOnly(raw, options = {}) {
+  if (!raw || typeof raw !== 'string') return false;
+  const s = raw
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[:\s]+|[:\s]+$/g, '')
+    .trim();
+  if (!s || s.length < 2 || s.length > 70) return false;
+  if (isBlockedUiName(s)) return false;
+
+  const rawLower = s.toLowerCase();
+  const rawTokens = rawLower.split(/\s+/).filter(Boolean);
+  if (rawTokens.length === 0 || rawTokens.every(t => t.length < 2)) return false;
+
+  const opts = options && typeof options === 'object' ? options : {};
+  const candidates = [
+    opts.chatName,
+    opts.myName,
+    opts.detectedMyName,
+    ...(Array.isArray(opts.knownSenders) ? opts.knownSenders : [])
+  ];
+
+  for (const cand of candidates) {
+    if (!cand || typeof cand !== 'string') continue;
+    const cleanCand = sanitizeChatName(cand, '').replace(/\s+/g, ' ').trim();
+    if (!cleanCand || cleanCand.length < 2) continue;
+    const candLower = cleanCand.toLowerCase();
+    if (GENERIC_PLACEHOLDER_NAMES.has(candLower)) continue;
+
+    if (rawLower === candLower) return true;
+
+    const candTokens = candLower.split(/\s+/).filter(Boolean);
+    if (rawTokens.length <= candTokens.length) {
+      for (let start = 0; start <= candTokens.length - rawTokens.length; start++) {
+        let allMatch = true;
+        for (let j = 0; j < rawTokens.length; j++) {
+          if (candTokens[start + j] !== rawTokens[j]) {
+            allMatch = false;
+            break;
+          }
+        }
+        if (allMatch) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 /**
  * Sanitize a raw sender name.
  * - Strips invisible/RTL control characters.
  * - Trims and removes leading/trailing colons and spaces ("You::" -> "You", "Raj::" -> "Raj").
  * - Rejects time/date strings ("1:22 AM", "17:45", "11/5/2026", "Yesterday") -> returns null.
+ * - Rejects UI button/menu strings ("Controls and Settings", "Settings", "Menu", etc.) -> returns null.
  * - Rejects empty/non-letter-only/system-accessibility strings -> returns null.
- * - Maps localized "You" to options.myName if provided.
+ * - Maps localized "You" to options.myName (when valid) if provided.
  * @param {string} raw
  * @param {{ myName?: string }} [options={}]
  * @returns {string|null}
@@ -817,16 +1499,19 @@ export function sanitizeSenderName(raw, options = {}) {
   // 2. Collapse whitespace and strip leading/trailing colons and spaces
   s = s.replace(/\s+/g, ' ').trim();
   s = s.replace(/^[:\s]+|[:\s]+$/g, '').trim();
-  if (!s) return null;
+  if (!s || s.length < 2 || s.length > 60) return null;
 
-  // 3. Reject anything that looks like a time or date
+  // 3. Reject UI interface strings ("Controls and Settings", "Settings", etc.)
+  if (isBlockedUiName(s)) return null;
+
+  // 4. Reject anything that looks like a time or date
   if (isTimeOrDateString(s)) return null;
 
-  // 4. Reject pure accessibility/punctuation/emoji-only strings
+  // 5. Reject pure accessibility/punctuation/emoji-only strings
   if (isEmojiOnlySender(s)) return null;
 
-  // 5. Map localized "You" to user's display name if provided
-  if (options.myName && isLocalizedYou(s)) {
+  // 6. Map localized "You" to user's display name if provided and safe
+  if (options.myName && !isBlockedUiName(options.myName) && isLocalizedYou(s)) {
     return options.myName;
   }
 
@@ -887,6 +1572,236 @@ export function isTickLabel(label) {
   if (!label || typeof label !== 'string') return false;
   const s = label.replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '').trim();
   return LOCALIZED_TICK_LABELS.some(rx => rx.test(s));
+}
+
+// ─── Messenger Icon-Only Patterns & Pruned DOM Skeletons ──────────────────────
+
+export const LIKE_LABEL_PATTERNS = [
+  /\b(?:like|thumbs?\s*up(?:\s*sign)?)\b/i,
+  /লাইক|থাম্বস\s*আপ/,
+  /\b(?:me\s+gusta|pulgar\s+arriba)\b/i,
+  /\b(?:j['’]aime|pouce\s+lev[ée])\b/i,
+  /\b(?:gef[äa]llt\s+mir|daumen\s+hoch)\b/i,
+  /\b(?:curtir|polegar\s+para\s+cima)\b/i,
+  /पसंद|थंब्स\s*अप/,
+  /إعجاب|أعجبني/,
+  /\b(?:suka|jempol\s+ke\s+atas)\b/i,
+  /\b(?:beğen|başparmak\s+yukarı)\b/i,
+  /\b(?:нравится|палец\s+вверх)\b/i
+];
+
+const REACTION_ACTION_OR_SUMMARY_RE = /\b(?:react(?:ed|ions?)?|see\s+who(?:\s+reacted)?|reacted\s+with|click\s+to\s+see)\b/i;
+const TOOLBAR_ACTION_ARIA_RE = /^(?:more|reply|react|remove|forward|unsend|more\s+options|react\s+to\s+message|remove\s+reaction|open\s+more)$/i;
+const GENERIC_SKIP_ROLES = new Set(['row', 'gridcell', 'presentation', 'none']);
+
+/**
+ * Return true if an accessibility label, SVG title, or image alt represents
+ * Messenger's standalone Like / thumbs-up button message.
+ * @param {string} str
+ * @returns {boolean}
+ */
+export function isLikeLabel(str) {
+  if (!str || typeof str !== 'string') return false;
+  const s = str
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!s || s.length > 70) return false;
+  if (REACTION_ACTION_OR_SUMMARY_RE.test(s)) return false;
+  if (/^👍\uFE0F?$/.test(s)) return true;
+  return LIKE_LABEL_PATTERNS.some(rx => rx.test(s));
+}
+
+/**
+ * Collect unique semantic accessibility labels from a row and its descendants
+ * (`role`, `aria-label`, `title`, `alt`, `<svg><title>`), excluding hover toolbar buttons.
+ * @param {Element} row
+ * @returns {string[]}
+ */
+export function extractRowAccessibilityLabels(row) {
+  if (!row || (typeof Element !== 'undefined' && !(row instanceof Element))) return [];
+  const labels = [];
+  const seen = new Set();
+  const addLabel = (entry) => {
+    if (entry && !seen.has(entry)) {
+      seen.add(entry);
+      labels.push(entry);
+    }
+  };
+
+  const elements = [row, ...(row.querySelectorAll ? Array.from(row.querySelectorAll('*')) : [])];
+  for (const el of elements) {
+    const role = (el.getAttribute?.('role') || '').trim();
+    const aria = (el.getAttribute?.('aria-label') || '').replace(/\s+/g, ' ').trim();
+    const title = (el.getAttribute?.('title') || '').replace(/\s+/g, ' ').trim();
+    const alt = (el.getAttribute?.('alt') || '').replace(/\s+/g, ' ').trim();
+
+    if (role === 'button' && TOOLBAR_ACTION_ARIA_RE.test(aria)) continue;
+    if (aria && TOOLBAR_ACTION_ARIA_RE.test(aria)) continue;
+
+    if (role && !GENERIC_SKIP_ROLES.has(role.toLowerCase())) {
+      addLabel(`role="${role}"`);
+    }
+    if (aria) {
+      addLabel(`aria-label="${aria.slice(0, 80)}"`);
+    }
+    if (title) {
+      addLabel(`title="${title.slice(0, 80)}"`);
+    }
+    if (alt) {
+      addLabel(`alt="${alt.slice(0, 80)}"`);
+    }
+
+    if ((el.tagName || '').toLowerCase() === 'title' && el.closest?.('svg')) {
+      const svgTitle = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (svgTitle) addLabel(`svg.title="${svgTitle.slice(0, 80)}"`);
+    }
+  }
+
+  return labels;
+}
+
+/**
+ * Build a compact, pruned DOM skeleton string (<= maxChars, default 800) for debug reports.
+ * Strips noisy classes, inline styles, SVG path coordinates, and long URLs while preserving
+ * tag names, semantic attributes (role, aria-label, title, alt, data-* names), and <svg><title>.
+ * Collapses single-child unattributed wrapper divs/spans and enforces includeSampleText privacy.
+ * Compatible with both browser DOM Elements and test MockElements.
+ * @param {Element} el
+ * @param {{ maxChars?: number, includeSampleText?: boolean }} [options={}]
+ * @returns {string}
+ */
+export function buildPrunedDomSkeleton(el, options = {}) {
+  if (!el || (typeof Element !== 'undefined' && !(el instanceof Element))) return '';
+  const maxChars = Number.isFinite(options?.maxChars) && options.maxChars > 0 ? options.maxChars : 800;
+  const includeSampleText = Boolean(options?.includeSampleText);
+
+  const escAttr = (v) => String(v).replace(/"/g, "'").replace(/\s+/g, ' ').trim();
+  const SVG_SHAPE_TAGS = new Set(['path', 'circle', 'rect', 'polygon', 'polyline', 'line', 'ellipse', 'use']);
+
+  const collectKeptAttrs = (node) => {
+    const attrs = [];
+    const priorityNames = ['role', 'aria-label', 'title', 'alt'];
+    for (const name of priorityNames) {
+      const val = node.getAttribute?.(name);
+      if (val !== null && val !== undefined && String(val).trim() !== '') {
+        attrs.push(`${name}="${escAttr(String(val).slice(0, 80))}"`);
+      }
+    }
+    const rawAttrs = node.attributes
+      ? Array.from(node.attributes)
+      : (node._attrs && typeof node._attrs === 'object'
+        ? Object.entries(node._attrs).map(([name, value]) => ({ name, value }))
+        : []);
+    let dataCount = 0;
+    for (const a of rawAttrs) {
+      if (!a || !a.name || !a.name.startsWith('data-')) continue;
+      if (a.name === 'data-rect') continue;
+      if (dataCount >= 3) break;
+      const val = String(a.value || '').trim();
+      if ((a.name === 'data-scope' || a.name === 'data-testid') && val && val.length <= 30) {
+        attrs.push(`${a.name}="${escAttr(val)}"`);
+      } else {
+        attrs.push(a.name);
+      }
+      dataCount++;
+    }
+    return attrs;
+  };
+
+  const serialize = (node, depth = 0, insideSvg = false, parentTag = '') => {
+    if (!node || depth > 25) return '';
+    if (node.nodeType === 3) {
+      const rawVal = (node.nodeValue !== undefined && node.nodeValue !== null)
+        ? node.nodeValue
+        : (node.textContent || '');
+      const txt = String(rawVal).replace(/\s+/g, ' ').trim();
+      if (!txt) return '';
+      if (insideSvg && parentTag === 'title') {
+        return txt.slice(0, 60);
+      }
+      if (!includeSampleText) return '[text]';
+      return txt.length > 40 ? `${txt.slice(0, 39)}…` : txt;
+    }
+    if (node.nodeType !== 1) return '';
+
+    const tag = (node.tagName || 'div').toLowerCase();
+    if (tag === 'script' || tag === 'style') return '';
+
+    const nowSvg = insideSvg || tag === 'svg';
+    const attrs = collectKeptAttrs(node);
+
+    if (nowSvg && SVG_SHAPE_TAGS.has(tag)) {
+      const attrStr = attrs.length ? ` ${attrs.join(' ')}` : '';
+      return `<${tag}${attrStr}/>`;
+    }
+
+    const childNodes = Array.from(node.childNodes || []);
+    const childParts = [];
+    let svgShapeCount = 0;
+    let svgEllipsisAdded = false;
+    let directNonEmptyText = false;
+    let elementChildrenOut = 0;
+
+    for (const ch of childNodes) {
+      if (ch.nodeType === 3) {
+        const out = serialize(ch, depth + 1, nowSvg, tag);
+        if (out) {
+          directNonEmptyText = true;
+          childParts.push(out);
+        }
+        continue;
+      }
+      if (ch.nodeType === 1) {
+        const chTag = (ch.tagName || '').toLowerCase();
+        if (nowSvg && SVG_SHAPE_TAGS.has(chTag)) {
+          svgShapeCount++;
+          if (svgShapeCount > 1) {
+            if (!svgEllipsisAdded) {
+              childParts.push('...');
+              svgEllipsisAdded = true;
+            }
+            continue;
+          }
+        }
+        const out = serialize(ch, depth + 1, nowSvg, tag);
+        if (out) {
+          elementChildrenOut++;
+          childParts.push(out);
+        }
+      }
+    }
+
+    if ((tag === 'div' || tag === 'span') && attrs.length === 0 && !directNonEmptyText) {
+      if (childParts.length === 0) return '';
+      if (elementChildrenOut === 1 && childParts.length === 1) {
+        return childParts[0];
+      }
+    }
+
+    const attrStr = attrs.length ? ` ${attrs.join(' ')}` : '';
+    const inner = childParts.join('');
+    if (!inner) {
+      return `<${tag}${attrStr}/>`;
+    }
+    return `<${tag}${attrStr}>${inner}</${tag}>`;
+  };
+
+  const skeleton = serialize(el, 0, false, '') || `<${(el.tagName || 'div').toLowerCase()}/>`;
+  if (skeleton.length <= maxChars) return skeleton;
+
+  // Ensure semantic labels remain visible even if truncated
+  const labels = extractRowAccessibilityLabels(el);
+  const prelim = skeleton.slice(0, maxChars - 1);
+  const missingLabels = labels.filter(l => !prelim.includes(l));
+  if (missingLabels.length > 0) {
+    const suffix = ` … [labels: ${missingLabels.join('; ')}]`;
+    if (suffix.length < maxChars - 20) {
+      const keep = Math.max(0, maxChars - suffix.length);
+      return `${skeleton.slice(0, keep)}${suffix}`.slice(0, maxChars);
+    }
+  }
+  return `${skeleton.slice(0, Math.max(1, maxChars - 1))}…`;
 }
 
 export { WhatsAppAdapter } from './adapters/whatsapp.js';

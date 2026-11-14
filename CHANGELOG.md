@@ -1,5 +1,38 @@
 # ChatFlow — Changelog & Transformation Log
 
+All notable changes to ChatFlow are documented in this file.
+Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+## [2.5.0] - 2026-11-14
+
+### Highlights
+- **Smart & faster Messenger scanning**: Skips the full second verification pass on clean scans (`Verification: not needed`), with a **Verify now** button and **Thorough scan** toggle in Settings.
+- **Single-block replies & icon-only messages**: Merged split Messenger reply rows into one clean quote + reply block across `.docx`/`.txt`/`.pdf`, and captured thumbs-up Likes (`👍`), stickers, and GIFs.
+- **Reliable completion & privacy**: Fixed the `"options is not defined"` completion error, kept `"Group messages by sender"` OFF by default, and pruned debug reports so chat text stays redacted by default.
+- **Safer updates & version checks**: Added post-update **What's New** highlights, settings migration, and automatic content-script reload prompts after an extension update.
+
+### Added
+- **Smart Verification & On-Demand Verify**: Pass 2 now runs automatically only when Pass 1 flags a scroll gap, unique unrecognized row, orphan reply, low direction confidence, date-order violation, or step error; added **Thorough scan (always verify)** toggle (default OFF) and completion-card **Verify now** button.
+- **Phase-Clear Scanning UI**: Stepper and progress card clearly show `"Reading messages"` during Pass 1 and switch to `"Verifying"` with an independent progress bar (`#verify-progress-box`) when verification runs, without recounting the message counter.
+- **Icon-Only Messenger Messages**: Added recognition for thumbs-up Likes (`type: 'like'`, rendered as `👍`), stickers, GIFs, and emoji-only `<img>` rows (`extractIconOnlyInfo()`, `isEmojiImage()`).
+- **Unique Audit Counters & Pruned DOM Skeletons**: Added `WeakMap` row identity tracking (`uniqueRowsSeen`, `uniqueUnrecognized`, etc. separate from `sightings`) and `buildPrunedDomSkeleton()` (`<=800` chars, privacy-redacted unless `"Include sample text"` is checked).
+- **Release & Version Management**: Added single-source-of-truth versioning (`manifest.json` -> `src/version.js`), `npm run version:check`, `release:patch|minor|major`, `build:zip`, `RELEASING.md`, post-update **What's New** card (`#whats-new-card`), Settings changelog viewer, versioned settings migrations, and content-script/sidepanel version handshake.
+- **Static & Export Consistency**: Added ESLint (`no-undef`, `no-unused-vars`) checks and shared `renderMessageBlock()` helpers across `.docx` and `.txt`.
+
+### Changed
+- **Messenger Pass 1 Efficiency**: Increased downward scroll step from `40%` to `60%` of viewport height with `300 ms` DOM quiet settle and per-element `WeakMap` row parse caching (`rowParseCache`) so live DOM rows are classified once across overlapping snapshots.
+- **Messenger Split-Row Reply Grouping**: Merged 1-row, 2-row, and 3-row `[reply-label] + [quote] + [reply]` Messenger sequences into ONE block matching WhatsApp, with `↪ Replying to <Name>` (`8.5pt` bold `#6B7280`), `9pt` italic quote truncated to `140` chars with `…`, and `3pt` colored left border.
+- **Default Export Option**: Forced `"Group messages by sender"` OFF by default on startup, rescan, and right after each export.
+- **Display Name & Reaction Formatting**: Expanded `UI_NAME_BLOCKLIST_EXACT` / `validatePersonName()` to block `"Controls and settings"` and UI labels, added `"Your name in this export"` inputs synced per platform, and stripped `"reaction with"` / `"see who"` / duration strings from reaction chips.
+- **Version Visibility**: Surfaced `ChatFlow v2.5.0` in Settings, footer, Diagnostics, debug JSON, error details, `.docx` core/custom properties (`ChatFlowVersion`) and summary/page footers, `.txt` header/footer, and `.pdf` cover footer.
+
+### Fixed
+- **Completion Crash (`"options is not defined"`)**: Added `DEFAULT_EXPORT_OPTIONS` and `normalizeExportOptions()` across `lib/transcript.js` and all exporters, plus isolated `try/catch` blocks around post-scan sub-steps so partial check errors never hide scan results.
+- **"Stop loading" & Direction Errors**: Added per-phase `AbortController`, immediate `STOP_LOADING` ack, 2-second watchdog, `"Reload tab"` recovery button, and array-normalized `comboUsed` in `content/direction.js`.
+- **Messenger Completeness & Chronology**: Fixed `localDateCursor` reset per snapshot, hover-tooltip exclusion, weekday resolution relative to scan date, non-decreasing chronological date checks, and partial avatar/participant name filtering.
+
 ## [2.4.0] - Multi-Signal Direction Engine, Two-Phase Manual-Start Scan & Scan Health Checklist
 
 ### 1. Multi-Signal Direction Separation & Self-Check (`content/direction.js`)

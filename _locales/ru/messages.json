@@ -175,5 +175,20 @@
   },
   "diagnosticsTitle": {
     "message": "Diagnostics"
+  },
+  "whatsNewTitle": {
+    "message": "ChatFlow обновлён до версии v$1"
+  },
+  "whatsNewSeeChangelog": {
+    "message": "Открыть полный список изменений"
+  },
+  "changelogTitle": {
+    "message": "Список изменений"
+  },
+  "versionMismatchNotice": {
+    "message": "ChatFlow был обновлён. Перезагрузите эту вкладку чата, чтобы завершить обновление."
+  },
+  "btnReloadTab": {
+    "message": "Перезагрузить вкладку"
   }
 }

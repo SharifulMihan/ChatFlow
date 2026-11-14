@@ -175,5 +175,20 @@
   },
   "diagnosticsTitle": {
     "message": "Diagnostics"
+  },
+  "whatsNewTitle": {
+    "message": "تم تحديث ChatFlow إلى الإصدار v$1"
+  },
+  "whatsNewSeeChangelog": {
+    "message": "عرض سجل التغييرات الكامل"
+  },
+  "changelogTitle": {
+    "message": "سجل التغييرات"
+  },
+  "versionMismatchNotice": {
+    "message": "تم تحديث ChatFlow. أعد تحميل علامة تبويب الدردشة هذه لإكمال التحديث."
+  },
+  "btnReloadTab": {
+    "message": "إعادة تحميل التبويب"
   }
 }

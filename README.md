@@ -1,6 +1,6 @@
 # ChatFlow — Chat to Document
 
-![Version](https://img.shields.io/badge/version-2.4.0-2DB87A?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.5.0-2DB87A?style=flat-square)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-2DB87A?style=flat-square)
 ![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline%20%26%20Local-1F6F4F?style=flat-square)
 ![Platforms](https://img.shields.io/badge/Platforms-WhatsApp%20Web%20%7C%20Messenger-3B82F6?style=flat-square)

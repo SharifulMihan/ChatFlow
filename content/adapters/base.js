@@ -18,37 +18,37 @@ export class BaseAdapter {
    * @param {string} [url=window.location.href]
    * @returns {boolean}
    */
-  detect(url = window.location.href) {
+  detect(_url = window.location.href) {
     throw new Error(`${this.name}: detect() not implemented`);
   }
 
   /**
    * Extract the contact or group name, strictly excluding presence text
    * like "last seen today at...", "Active now", "Active 5m ago", "typing...", etc.
-   * @param {Document|Element} [doc=document]
+   * @param {Document|Element} [_doc=document]
    * @returns {string} Clean contact or group title
    */
-  getChatName(doc = (typeof document !== 'undefined' ? document : null)) {
+  getChatName(_doc = (typeof document !== 'undefined' ? document : null)) {
     throw new Error(`${this.name}: getChatName() not implemented`);
   }
 
   /**
    * Locate the virtualized scrollable container that holds messages.
-   * @param {Document|Element} [doc=(typeof document !== 'undefined' ? document : null)]
+   * @param {Document|Element} [_doc=(typeof document !== 'undefined' ? document : null)]
    * @returns {HTMLElement|null}
    */
-  getScrollContainer(doc = (typeof document !== 'undefined' ? document : null)) {
+  getScrollContainer(_doc = (typeof document !== 'undefined' ? document : null)) {
     throw new Error(`${this.name}: getScrollContainer() not implemented`);
   }
 
   /**
    * Determine whether the conversation beginning / top has been reached.
    * @param {HTMLElement} container
-   * @param {Document|Element} [doc=(typeof document !== 'undefined' ? document : null)]
-   * @param {Object} [tracker=null]
+   * @param {Document|Element} [_doc=(typeof document !== 'undefined' ? document : null)]
+   * @param {Object} [_tracker=null]
    * @returns {{ reached: boolean, reason?: string }}
    */
-  hasReachedTop(container, doc = (typeof document !== 'undefined' ? document : null), tracker = null) {
+  hasReachedTop(container, _doc = (typeof document !== 'undefined' ? document : null), _tracker = null) {
     if (!container) return { reached: true, reason: 'no_container' };
     return { reached: container.scrollTop <= 2, reason: 'scrollTop_zero' };
   }
@@ -56,10 +56,10 @@ export class BaseAdapter {
   /**
    * Determine whether the conversation bottom has been reached.
    * @param {HTMLElement} container
-   * @param {Document|Element} [doc=(typeof document !== 'undefined' ? document : null)]
+   * @param {Document|Element} [_doc=(typeof document !== 'undefined' ? document : null)]
    * @returns {{ reached: boolean, reason?: string }}
    */
-  hasReachedBottom(container, doc = (typeof document !== 'undefined' ? document : null)) {
+  hasReachedBottom(container, _doc = (typeof document !== 'undefined' ? document : null)) {
     if (!container) return { reached: true, reason: 'no_container' };
     const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 6;
     return { reached: atBottom, reason: atBottom ? 'scroll_at_bottom' : 'not_at_bottom' };
@@ -69,30 +69,30 @@ export class BaseAdapter {
    * Scroll up to trigger loading of older messages.
    * Must handle platform-specific load triggers (e.g. clicking "get older messages from phone" on WhatsApp).
    * @param {HTMLElement} container - scroll container returned by getScrollContainer()
-   * @param {Document|Element} [doc=(typeof document !== 'undefined' ? document : null)]
-   * @param {function} [onProgress] - optional callback for phone-sync status
-   * @param {Object} [ctrl=null] - scan controller for checking cancellation/finalization
+   * @param {Document|Element} [_doc=(typeof document !== 'undefined' ? document : null)]
+   * @param {function} [_onProgress] - optional callback for phone-sync status
+   * @param {Object} [_ctrl=null] - scan controller for checking cancellation/finalization
    * @returns {Promise<{ newMessagesFound: boolean, atTop: boolean }>}
    */
-  async scrollToLoadOlder(container, doc = (typeof document !== 'undefined' ? document : null), onProgress = () => {}, ctrl = null) {
+  async scrollToLoadOlder(_container, _doc = (typeof document !== 'undefined' ? document : null), _onProgress = () => {}, _ctrl = null) {
     throw new Error(`${this.name}: scrollToLoadOlder() not implemented`);
   }
 
   /**
    * Extract and normalize currently rendered messages in the DOM.
-   * @param {Document|Element} [doc=(typeof document !== 'undefined' ? document : null)]
+   * @param {Document|Element} [_doc=(typeof document !== 'undefined' ? document : null)]
    * @returns {Array<Object>}
    */
-  extractMessages(doc = (typeof document !== 'undefined' ? document : null)) {
+  extractMessages(_doc = (typeof document !== 'undefined' ? document : null)) {
     throw new Error(`${this.name}: extractMessages() not implemented`);
   }
 
   /**
    * Verify that essential DOM selectors are resolving.
-   * @param {Document|Element} [doc=(typeof document !== 'undefined' ? document : null)]
+   * @param {Document|Element} [_doc=(typeof document !== 'undefined' ? document : null)]
    * @returns {{ ok: boolean, results: Array<{ name: string, found: boolean, selector: string }> }}
    */
-  healthCheck(doc = (typeof document !== 'undefined' ? document : null)) {
+  healthCheck(_doc = (typeof document !== 'undefined' ? document : null)) {
     throw new Error(`${this.name}: healthCheck() not implemented`);
   }
 }

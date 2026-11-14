@@ -10,8 +10,10 @@ import { BaseAdapter } from './base.js';
 import {
   sanitizeChatName,
   sanitizeSenderName,
-  isLocalizedYou,
+  validatePersonName,
   isTickLabel,
+  isLocalizedYou,
+  truncateQuoteText,
   OUTGOING_TICK_SELECTORS,
   INTRO_BLOCK_PATTERNS,
   LOCALIZED_DELETED_PATTERNS,
@@ -212,6 +214,7 @@ export class WhatsAppAdapter extends BaseAdapter {
    */
   detectMyProfileName(doc = document) {
     try {
+      const contactName = this.getChatName ? (this.getChatName(doc) || '') : '';
       const profileSelectors = [
         'header [data-testid="menu-bar-user-avatar"] img[alt]',
         '[data-testid="drawer-left"] [data-testid="col-main-profile"] span[dir="auto"]',
@@ -220,9 +223,11 @@ export class WhatsAppAdapter extends BaseAdapter {
       for (const sel of profileSelectors) {
         const el = doc.querySelector(sel);
         if (el) {
+          // Skip interface button labels unless it's an avatar img alt that passes strict person-name validation
+          if (el.tagName !== 'IMG' && el.closest?.('button, [role="button"]')) continue;
           const raw = el.getAttribute('alt') || el.textContent || '';
-          const clean = sanitizeSenderName(raw);
-          if (clean && !isLocalizedYou(clean)) return clean;
+          const clean = validatePersonName(raw, { contactName });
+          if (clean) return clean;
         }
       }
     } catch (_) {}
@@ -316,7 +321,7 @@ export class WhatsAppAdapter extends BaseAdapter {
    * @param {Document|Element} [doc=(typeof document !== 'undefined' ? document : null)]
    * @returns {{ reached: boolean, reason?: string }}
    */
-  hasReachedBottom(container, doc = (typeof document !== 'undefined' ? document : null)) {
+  hasReachedBottom(container, _doc = (typeof document !== 'undefined' ? document : null)) {
     if (!container) return { reached: true, reason: 'no_container' };
     const atBottom = (container.scrollTop + container.clientHeight >= container.scrollHeight - 6);
     return { reached: atBottom, reason: atBottom ? 'scroll_at_bottom' : 'scrolling' };
@@ -586,12 +591,17 @@ export class WhatsAppAdapter extends BaseAdapter {
           : full;
       }
       qText = qText.replace(/\s+/g, ' ').trim();
-      if (!qText && qType !== 'text') {
-        qText = `[${qType}]`;
-      }
+      const mediaType = qType !== 'text' ? qType : null;
+      const cleanText = mediaType && (!qText || qText === `[${qType}]`) ? '' : truncateQuoteText(qText, 140);
 
-      if (!qSender && !qText) return null;
-      return { sender: qSender, text: qText, type: qType };
+      if (!qSender && !cleanText && !mediaType) return null;
+      return {
+        sender: qSender || 'Unknown',
+        text: cleanText,
+        type: qType,
+        mediaType,
+        senderIsMe: Boolean(isLocalizedYou(rawSender))
+      };
     } catch (_) {
       return null;
     }

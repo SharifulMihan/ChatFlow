@@ -175,5 +175,20 @@
   },
   "diagnosticsTitle": {
     "message": "Diagnostics"
+  },
+  "whatsNewTitle": {
+    "message": "ChatFlow was updated to v$1"
+  },
+  "whatsNewSeeChangelog": {
+    "message": "See full changelog"
+  },
+  "changelogTitle": {
+    "message": "Changelog"
+  },
+  "versionMismatchNotice": {
+    "message": "ChatFlow was updated. Reload this chat tab to finish updating."
+  },
+  "btnReloadTab": {
+    "message": "Reload tab"
   }
 }

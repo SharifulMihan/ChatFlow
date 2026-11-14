@@ -18,7 +18,26 @@
   let session = null;
   let scannerModule = null;
 
-  const BUSY_STATES = new Set(['loading', 'reading', 'preparing']);
+  const BUSY_STATES = new Set(['loading', 'reading', 'verifying', 'preparing']);
+
+  function getContentScriptVersion() {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getManifest === 'function') {
+        const v = chrome.runtime.getManifest()?.version;
+        if (typeof v === 'string' && v.trim()) return v.trim();
+      }
+    } catch (_) {}
+    if (scannerModule && typeof scannerModule.APP_VERSION === 'string') {
+      return scannerModule.APP_VERSION;
+    }
+    return '';
+  }
+
+  function hasExpectedVersionMismatch(msg) {
+    if (!msg || !msg.expectedVersion) return false;
+    const current = getContentScriptVersion();
+    return Boolean(current && msg.expectedVersion !== current);
+  }
 
   async function loadScanner() {
     if (!scannerModule) {
@@ -43,14 +62,32 @@
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     switch (msg.type) {
       case 'PING':
-        sendResponse({ ok: true, url: location.href });
+        sendResponse({ ok: true, version: getContentScriptVersion(), url: location.href });
         break;
 
       case 'LOAD_HISTORY':
+        if (hasExpectedVersionMismatch(msg)) {
+          sendResponse({
+            ok: false,
+            versionMismatch: true,
+            contentVersion: getContentScriptVersion(),
+            error: 'ChatFlow was updated. Reload this chat tab to finish updating.'
+          });
+          break;
+        }
         handleLoadHistory(sendResponse);
         return true; // async
 
       case 'START_SCAN':
+        if (hasExpectedVersionMismatch(msg)) {
+          sendResponse({
+            ok: false,
+            versionMismatch: true,
+            contentVersion: getContentScriptVersion(),
+            error: 'ChatFlow was updated. Reload this chat tab to finish updating.'
+          });
+          break;
+        }
         handleLegacyStartScan(msg.options || {}, sendResponse);
         return true; // async
 
@@ -60,6 +97,15 @@
         return true; // async
 
       case 'START_READING':
+        if (hasExpectedVersionMismatch(msg)) {
+          sendResponse({
+            ok: false,
+            versionMismatch: true,
+            contentVersion: getContentScriptVersion(),
+            error: 'ChatFlow was updated. Reload this chat tab to finish updating.'
+          });
+          break;
+        }
         handleStartReading(msg.options || {}, sendResponse);
         return true; // async
 
@@ -69,7 +115,7 @@
         break;
 
       case 'SESSION_STATUS':
-        sendResponse({ ok: true, state: session ? session.state : 'none', url: location.href });
+        sendResponse({ ok: true, version: getContentScriptVersion(), state: session ? session.state : 'none', url: location.href });
         break;
 
       case 'RUN_HEALTHCHECK':
@@ -78,6 +124,19 @@
 
       case 'VERIFY_SCAN':
         handleVerifyScan(msg.masterList, sendResponse);
+        return true; // async
+
+      case 'VERIFY_NOW':
+        if (hasExpectedVersionMismatch(msg)) {
+          sendResponse({
+            ok: false,
+            versionMismatch: true,
+            contentVersion: getContentScriptVersion(),
+            error: 'ChatFlow was updated. Reload this chat tab to finish updating.'
+          });
+          break;
+        }
+        handleVerifyNow(msg.payload || {}, sendResponse);
         return true; // async
 
       default:
@@ -103,7 +162,14 @@
       }
       const mySession = session;
       const info = await mySession.loadHistory();
-      sendResponse({ ok: true, state: 'ready', ...info, chatName: mySession.chatName, platform: mySession.adapter?.name });
+      sendResponse({
+        ok: true,
+        state: 'ready',
+        ...info,
+        chatName: mySession.chatName,
+        platform: mySession.adapter?.name,
+        detectedMyName: info.detectedMyName || mySession.profileName || null
+      });
     } catch (err) {
       if (err.message === 'CANCELLED') {
         sendResponse({ ok: false, cancelled: true });
@@ -123,7 +189,8 @@
           state: 'ready',
           ...snap,
           chatName: session.chatName,
-          platform: session.adapter?.name
+          platform: session.adapter?.name,
+          detectedMyName: snap.detectedMyName || session.profileName || null
         });
         return;
       }
@@ -134,13 +201,15 @@
       session.beginningReached = false;
       session.endReason = 'user_stop';
       session._enterReady();
+      const readySnap = session.readySnapshot();
       sendResponse({
         ok: true,
         status: 'phase1_stopped',
         state: 'ready',
-        ...session.readySnapshot(),
+        ...readySnap,
         chatName: session.chatName,
-        platform: session.adapter?.name
+        platform: session.adapter?.name,
+        detectedMyName: readySnap.detectedMyName || session.profileName || null
       });
     } catch (err) {
       sendResponse({
@@ -224,6 +293,28 @@
     }
   }
 
+  async function handleVerifyNow(payload, sendResponse) {
+    try {
+      const mod = await loadScanner();
+      if (session && BUSY_STATES.has(session.state)) {
+        sendResponse({ ok: false, error: 'A scan step is already running.' });
+        return;
+      }
+      session = mod.createSession(sendProgress);
+      const mySession = session;
+      const result = await mySession.runOnDemandVerification(payload);
+      session = null;
+      sendResponse({ ok: true, payload: result });
+    } catch (err) {
+      session = null;
+      if (err.message === 'CANCELLED') {
+        sendResponse({ ok: false, cancelled: true });
+      } else {
+        sendResponse({ ok: false, error: err?.message || 'Verification failed' });
+      }
+    }
+  }
+
   async function handleHealthCheck(sendResponse) {
     try {
       const { getAdapter } = await import(chrome.runtime.getURL('content/adapters/index.js'));
@@ -299,5 +390,37 @@
 
   if (document.body) {
     bodyObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // ─── Global Error Capture ──────────────────────────────────────────────────
+  let lastReportedErrorAt = 0;
+  function reportContentScriptError(step, errOrEvent) {
+    const now = Date.now();
+    if (now - lastReportedErrorAt < 500) return;
+    lastReportedErrorAt = now;
+    try {
+      const errObj = errOrEvent?.error || errOrEvent?.reason || errOrEvent;
+      const message = errObj?.message || errOrEvent?.message || String(errObj || 'Unknown content script error');
+      const stack = errObj?.stack || (errOrEvent?.filename ? `${errOrEvent.filename}:${errOrEvent.lineno}:${errOrEvent.colno}` : '');
+      chrome.runtime.sendMessage({
+        type: 'RUNTIME_ERROR',
+        payload: {
+          source: 'content-script',
+          step,
+          message,
+          stack,
+          url: typeof location !== 'undefined' ? location.href : ''
+        }
+      }).catch(() => {});
+    } catch (_) {}
+  }
+
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('error', (event) => {
+      reportContentScriptError('window.onerror', event);
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      reportContentScriptError('unhandledrejection', event);
+    });
   }
 })();

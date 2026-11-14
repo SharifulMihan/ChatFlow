@@ -10,10 +10,8 @@ import {
   extractReplySender,
   cleanMessageText
 } from '../content/selectors.js';
-import { MessengerAdapter } from '../content/adapters/messenger.js';
-import { WhatsAppAdapter } from '../content/adapters/whatsapp.js';
-import { isRowMatch, mergeSnapshot } from '../content/scanner.js';
-import { buildStats, formatTimestamp, buildTranscript } from '../lib/transcript.js';
+import { mergeSnapshot } from '../content/scanner.js';
+import { buildStats } from '../lib/transcript.js';
 import { buildTxtContent } from '../lib/exporter-txt.js';
 
 console.log('========================================================');

@@ -175,5 +175,20 @@
   },
   "diagnosticsTitle": {
     "message": "Diagnostics"
+  },
+  "whatsNewTitle": {
+    "message": "ChatFlow wurde auf v$1 aktualisiert"
+  },
+  "whatsNewSeeChangelog": {
+    "message": "Vollständiges Änderungsprotokoll anzeigen"
+  },
+  "changelogTitle": {
+    "message": "Änderungsprotokoll"
+  },
+  "versionMismatchNotice": {
+    "message": "ChatFlow wurde aktualisiert. Lade diesen Chat-Tab neu, um das Update abzuschließen."
+  },
+  "btnReloadTab": {
+    "message": "Tab neu laden"
   }
 }

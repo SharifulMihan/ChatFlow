@@ -116,6 +116,23 @@
     <!-- Scrollable View Area -->
     <main class="app-scrollable">
 
+      <!-- What's New Post-Update Card (shown once per new version after update) -->
+      <section id="whats-new-card" class="flat-card whats-new-card hidden" role="region" aria-labelledby="whats-new-title">
+        <div class="whats-new-head">
+          <div class="whats-new-title-wrap">
+            <span class="whats-new-badge" aria-hidden="true">New</span>
+            <h2 id="whats-new-title" class="whats-new-title">ChatFlow was updated</h2>
+          </div>
+          <button id="btn-whats-new-close" class="whats-new-close" type="button" aria-label="Dismiss update notes">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <ul id="whats-new-list" class="whats-new-list"></ul>
+        <div class="whats-new-actions">
+          <button id="btn-whats-new-changelog" class="btn btn-outline btn-xs" type="button" data-i18n="whatsNewSeeChangelog">See full changelog</button>
+        </div>
+      </section>
+
       <!-- State: Not on a Supported Site -->
       <section id="state-not-supported" class="flat-card state-box hidden">
         <div class="state-icon-circle">
@@ -155,6 +172,10 @@
         </div>
         <h2 class="state-title" id="ready-title-text">Ready to Scan</h2>
         <p class="state-desc">Click below to read all messages from the beginning to the latest message.</p>
+        <div class="flat-input-group" style="text-align:left; margin: 10px 0 12px;">
+          <label class="input-label" for="ready-my-name">Your name in this export</label>
+          <input type="text" id="ready-my-name" class="flat-input" placeholder="Me" maxlength="60" autocomplete="name" />
+        </div>
         <button id="btn-scan" class="btn btn-primary btn-block">
           <span>Scan this chat</span>
         </button>
@@ -166,7 +187,7 @@
         <!-- 3-step stepper -->
         <ol class="stepper" id="scan-stepper" aria-label="Scan progress">
           <li class="step active" data-step="1" id="step-1"><span class="step-dot" aria-hidden="true">1</span><span class="step-label" data-i18n="stepLoad">Load history</span></li>
-          <li class="step" data-step="2" id="step-2"><span class="step-dot" aria-hidden="true">2</span><span class="step-label" data-i18n="stepRead">Read messages</span></li>
+          <li class="step" data-step="2" id="step-2"><span class="step-dot" aria-hidden="true">2</span><span class="step-label" data-i18n="stepRead">Reading messages</span></li>
           <li class="step" data-step="3" id="step-3"><span class="step-dot" aria-hidden="true">3</span><span class="step-label" data-i18n="stepPrepare">Prepare export</span></li>
         </ol>
 
@@ -197,6 +218,10 @@
           <span id="ready-badge" class="state-badge partial"><span class="badge-dot" aria-hidden="true"></span><span id="ready-badge-text">Partial history</span></span>
           <p class="scan-line" id="ready-status">History loaded back to -</p>
           <p class="scan-meta" id="ready-message"></p>
+          <div class="flat-input-group" style="text-align:left; margin: 8px 0 10px;">
+            <label class="input-label" for="scan-ready-my-name">Your name in this export</label>
+            <input type="text" id="scan-ready-my-name" class="flat-input" placeholder="Me" maxlength="60" autocomplete="name" />
+          </div>
           <div class="ready-actions">
             <button id="btn-start-scan" class="btn btn-primary btn-block" type="button"><span data-i18n="btnStartScan">Start scan</span></button>
             <button id="btn-load-more" class="btn btn-outline btn-block" type="button"><span data-i18n="btnLoadMore">Load more history</span></button>
@@ -228,6 +253,12 @@
           <p class="scan-line" id="reading-date">Reading...</p>
           <p class="scan-meta" id="reading-speed"></p>
           <p id="reading-direction-note" class="scan-meta hidden" data-i18n="liveDirectionNote">Double-checking who sent what...</p>
+          <div id="verify-progress-box" class="verify-progress-box hidden">
+            <div class="verify-progress-label" id="verifying-label">Verifying coverage...</div>
+            <div class="flat-progress-track" role="progressbar" id="verifying-progress" aria-label="Verifying coverage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div id="verifying-bar" class="flat-progress-bar verify-progress-bar" style="width:0%"></div>
+            </div>
+          </div>
           <div class="scan-actions-row">
             <button id="btn-reading-cancel" class="btn btn-cancel-scan" type="button"><span data-i18n="btnCancel">Cancel</span></button>
           </div>
@@ -253,10 +284,13 @@
         <p class="state-desc" id="error-message">Unable to read conversation.</p>
         <div style="display:flex; flex-direction:column; gap:8px; width:100%;">
           <button id="btn-reload-tab" class="btn btn-primary btn-block hidden" type="button">
-            <span>Reload tab</span>
+            <span data-i18n="btnReloadTab">Reload tab</span>
           </button>
           <button id="btn-retry" class="btn btn-primary btn-block" type="button">
             <span>Try again</span>
+          </button>
+          <button id="btn-copy-error-details" class="btn btn-outline btn-block" type="button">
+            <span>Copy error details</span>
           </button>
         </div>
       </section>
@@ -293,6 +327,12 @@
               <div class="audit-cell"><span>Unrecognized</span><strong id="cc-aud-unrec">0</strong></div>
               <div class="audit-cell"><span>Scroll gaps</span><strong id="cc-aud-gaps">0</strong></div>
               <div class="audit-cell"><span>Verify diffs</span><strong id="cc-aud-diffs">0</strong></div>
+              <div class="audit-cell"><span>Verification</span><strong id="cc-aud-verify-status">Skipped</strong></div>
+              <div class="audit-cell"><span>Pass timings</span><strong id="cc-aud-timings">-</strong></div>
+            </div>
+            <div id="cc-verify-bar" class="cc-verify-bar">
+              <span id="cc-verify-note" class="cc-verify-note">Verification: not needed</span>
+              <button id="btn-cc-verify-now" class="btn btn-outline btn-xs" type="button">Verify now</button>
             </div>
 
             <div class="mini-label health-title" data-i18n="scanHealth">Scan health</div>
@@ -327,6 +367,19 @@
             <div class="partial-scan-text">
               <span class="partial-scan-title" style="color: #F2994A;">Sender imbalance warning</span>
               <span class="partial-scan-desc" id="sender-warning-desc">Over 95% of messages were attributed to one sender.</span>
+            </div>
+          </div>
+
+          <!-- Non-fatal Check Warning Banner (shown if a post-scan sub-step failed) -->
+          <div id="checks-warning-banner" class="partial-scan-banner hidden" style="border-left: 3px solid #F59E0B; background: rgba(245, 158, 11, 0.12);">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;">
+              <div class="partial-scan-text">
+                <span class="partial-scan-title" style="color: #F59E0B;">Some checks could not run</span>
+                <span class="partial-scan-desc" id="checks-warning-desc">Scan finished, but one or more post-scan checks hit an error.</span>
+              </div>
+              <button id="btn-copy-substep-error" class="btn btn-outline" type="button" style="padding: 4px 8px; font-size: 11px; white-space: nowrap;">
+                <span>Copy error details</span>
+              </button>
             </div>
           </div>
 
@@ -510,8 +563,8 @@
 
             <!-- My Name & Rename Participants -->
             <div class="flat-input-group">
-              <span class="input-label" data-i18n="myNameLabel">My name in exports</span>
-              <input type="text" id="exp-my-name" class="flat-input" placeholder="Detected name (e.g. S.I.MiHAN)" />
+              <label class="input-label" for="exp-my-name">Your name in this export</label>
+              <input type="text" id="exp-my-name" class="flat-input" placeholder="Me" maxlength="60" autocomplete="name" />
             </div>
 
             <details style="font-size:12px;">
@@ -531,7 +584,7 @@
               </label>
               <label class="toggle-wrapper" style="padding:3px 0;">
                 <div class="toggle-text"><span class="toggle-title">Group messages by sender</span></div>
-                <div class="flat-toggle"><input type="checkbox" id="exp-group-sender" checked /><span class="toggle-slider"></span></div>
+                <div class="flat-toggle"><input type="checkbox" id="exp-group-sender" /><span class="toggle-slider"></span></div>
               </label>
               <label class="toggle-wrapper" style="padding:3px 0;">
                 <div class="toggle-text"><span class="toggle-title">Show reactions</span></div>
@@ -604,11 +657,11 @@
               </div>
               <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:4px; padding:6px 0;">
                 <span class="settings-label" data-i18n="myNameLabel">My name in exports</span>
-                <input type="text" id="setting-my-name" class="flat-input" placeholder="Auto-detected" />
+                <input type="text" id="setting-my-name" class="flat-input" placeholder="Me" maxlength="60" autocomplete="name" />
               </div>
               <div class="settings-row">
                 <span class="settings-label">Extension version</span>
-                <span class="settings-val">v2.4.0</span>
+                <span id="setting-ext-version" class="settings-val">ChatFlow</span>
               </div>
               <div class="settings-row">
                 <span class="settings-label">Developer</span>
@@ -639,6 +692,16 @@
                 </div>
               </div>
               <div class="settings-row" style="padding: 6px 0;">
+                <div class="toggle-text" style="flex:1;">
+                  <span class="settings-label" style="display:block;">Thorough scan (always verify)</span>
+                  <span class="settings-desc-note" style="display:block; padding:0; margin-top:2px;">Always run the full second verification pass even when Pass 1 looks clean.</span>
+                </div>
+                <div class="flat-toggle">
+                  <input type="checkbox" id="setting-thorough-scan" />
+                  <span class="toggle-slider"></span>
+                </div>
+              </div>
+              <div class="settings-row" style="padding: 6px 0;">
                 <span class="settings-label" data-i18n="btnSwapSides">Swap sides</span>
                 <button id="btn-swap-settings" class="btn btn-outline btn-xs" type="button"><span data-i18n="btnSwapSides">Swap sides</span></button>
               </div>
@@ -658,6 +721,14 @@
               <button id="btn-report-problem" class="btn btn-outline btn-block" style="font-size:12px;">
                 <span data-i18n="reportProblem">Report a problem (Copy Diagnostics)</span>
               </button>
+            </div>
+
+            <!-- Full Changelog Viewer -->
+            <div id="settings-changelog-box" class="settings-changelog-box">
+              <details id="settings-changelog-details" class="settings-changelog-details">
+                <summary data-i18n="changelogTitle">Changelog</summary>
+                <div id="settings-changelog-content" class="settings-changelog-content"></div>
+              </details>
             </div>
 
             <!-- Diagnostics: technical logs live here, not in the main UI -->
@@ -705,6 +776,14 @@
                   <span class="settings-label">Rejected Separators</span>
                   <span id="int-rejected-seps" class="settings-val">0</span>
                 </div>
+                <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Verification Status</span>
+                  <span id="int-verify-status" class="settings-val">Skipped</span>
+                </div>
+                <div class="settings-row" style="padding: 4px 0;">
+                  <span class="settings-label">Pass Timings</span>
+                  <span id="int-pass-timings" class="settings-val">-</span>
+                </div>
               </div>
               <div class="debug-report-bar" style="margin-bottom: 8px;">
                 <button id="btn-copy-debug-report" class="btn btn-outline btn-block" type="button" style="font-size: 11px; height: 28px;">Copy debug report (JSON)</button>
@@ -740,7 +819,7 @@
 
     <!-- App Footer Credit -->
     <footer class="app-footer">
-      <span>Nothing leaves your device &middot; Made by <strong>S.I.Mihan</strong></span>
+      <span><strong id="app-footer-version">ChatFlow</strong> &middot; Nothing leaves your device &middot; Made by <strong>S.I.Mihan</strong></span>
     </footer>
 
   </div>

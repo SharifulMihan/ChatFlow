@@ -10,7 +10,7 @@
 
 import { MessengerAdapter } from '../content/adapters/messenger.js';
 import { buildTxtContent } from '../lib/exporter-txt.js';
-import { buildStats, formatTimestamp } from '../lib/transcript.js';
+import { buildStats } from '../lib/transcript.js';
 import {
   cleanMessageText,
   isPureAccessibilityLabel,

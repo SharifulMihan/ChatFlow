@@ -11,7 +11,7 @@
  * true = "mine", false = "contact's", null = "no opinion".
  */
 
-import { sanitizeSenderName, isLocalizedYou } from './selectors.js';
+import { sanitizeSenderName, isLocalizedYou, isBlockedUiName, validatePersonName } from './selectors.js';
 
 /**
  * Safely coerce any diagnostic or collection value into an Array.
@@ -411,7 +411,7 @@ export function quickDirectionCheck(messages, chatType = 'one-to-one') {
 // ─── Sides, swap, names ──────────────────────────────────────────────────────
 
 /** Visual side of a message ('left' | 'right') used by the Confirm dialog. */
-export function computeSide(m, ctx = {}) {
+export function computeSide(m, _ctx = {}) {
   const v = m.dirVotes || {};
   if (v.geometry === true) return 'right';
   if (v.geometry === false) return 'left';
@@ -457,16 +457,20 @@ export function sampleSides(messages, n = 3) {
   return out;
 }
 
-/** Best display name for me: user override > profile > most frequent real outgoing name > "Me". */
+/** Best display name for me: user override > validated page profile > validated outgoing name > "Me". */
 export function pickMyName(messages, ctx = {}) {
-  if (ctx.myNameOverride && ctx.myNameOverride.trim()) return ctx.myNameOverride.trim();
-  const profile = sanitizeSenderName(ctx.profileName);
-  if (profile && !isLocalizedYou(profile)) return profile;
+  if (ctx.myNameOverride && typeof ctx.myNameOverride === 'string') {
+    const trimmed = ctx.myNameOverride.trim();
+    if (trimmed && !isBlockedUiName(trimmed)) return trimmed;
+  }
+  const contactName = ctx.chatName || '';
+  const profile = validatePersonName(ctx.profileName, { contactName });
+  if (profile) return profile;
   const counts = {};
   for (const m of messages) {
     if (m.type === 'system' || !m.isMe) continue;
-    const c = sanitizeSenderName(m.senderRaw);
-    if (c && !isLocalizedYou(c) && c.toLowerCase() !== (ctx.chatName || '').toLowerCase()) {
+    const c = validatePersonName(m.senderRaw, { contactName });
+    if (c) {
       counts[c] = (counts[c] || 0) + 1;
     }
   }
@@ -516,8 +520,20 @@ export function finalizeSenders(messages, ctx = {}) {
     if (m.sender !== name) { m.sender = name; changed++; }
     if (m.fingerprint) m.fingerprint.sender = name;
 
-    if (m.replyTo && typeof m.replyTo === 'object' && isLocalizedYou(m.replyTo.sender || '')) {
-      m.replyTo = { ...m.replyTo, sender: myName };
+    if (m.replyTo && typeof m.replyTo === 'object') {
+      const rSender = (m.replyTo.sender || '').trim();
+      const quotesMe = Boolean(
+        m.replyTo.senderIsMe === true ||
+        isLocalizedYou(rSender) ||
+        /^(?:me|you|yourself)$/i.test(rSender) ||
+        isBlockedUiName(rSender) ||
+        (chatType === 'one-to-one' && !m.isMe && (!rSender || rSender === 'Me'))
+      );
+      if (quotesMe) {
+        m.replyTo = { ...m.replyTo, sender: myName, senderIsMe: true };
+      } else if (chatType === 'one-to-one' && m.isMe && (!rSender || /^(?:contact|them)$/i.test(rSender))) {
+        m.replyTo = { ...m.replyTo, sender: contactName };
+      }
     }
   }
 

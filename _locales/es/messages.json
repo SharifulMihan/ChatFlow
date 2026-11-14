@@ -175,5 +175,20 @@
   },
   "diagnosticsTitle": {
     "message": "Diagnostics"
+  },
+  "whatsNewTitle": {
+    "message": "ChatFlow se actualizó a v$1"
+  },
+  "whatsNewSeeChangelog": {
+    "message": "Ver registro de cambios completo"
+  },
+  "changelogTitle": {
+    "message": "Registro de cambios"
+  },
+  "versionMismatchNotice": {
+    "message": "ChatFlow se actualizó. Recarga esta pestaña del chat para completar la actualización."
+  },
+  "btnReloadTab": {
+    "message": "Recargar pestaña"
   }
 }

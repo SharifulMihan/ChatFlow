@@ -175,5 +175,20 @@
   },
   "diagnosticsTitle": {
     "message": "Diagnostics"
+  },
+  "whatsNewTitle": {
+    "message": "ChatFlow v$1 sürümüne güncellendi"
+  },
+  "whatsNewSeeChangelog": {
+    "message": "Tüm değişiklik günlüğünü gör"
+  },
+  "changelogTitle": {
+    "message": "Değişiklik günlüğü"
+  },
+  "versionMismatchNotice": {
+    "message": "ChatFlow güncellendi. Güncellemeyi tamamlamak için bu sohbet sekmesini yenileyin."
+  },
+  "btnReloadTab": {
+    "message": "Sekmeyi yenile"
   }
 }

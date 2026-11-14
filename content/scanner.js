@@ -19,14 +19,14 @@ import {
   isValidConversationDate,
   sanitizeSenderName,
   isTimeOrDateString,
-  isLocalizedYou
+  isBlockedUiName,
+  validatePersonName,
+  cleanReactionsList
 } from './selectors.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const PHASE1_MAX_ATTEMPTS = 45;       // Hard cap on upward scroll attempts
-const PHASE1_TIMEOUT_MS = 25000;       // Max ms before forced transition to Phase 2
-const DOWNWARD_STEP_RATIO = 0.40;      // Step size <= 40% of container clientHeight
+const DOWNWARD_STEP_RATIO = 0.60;      // Step size ~60% of container clientHeight (~40% overlap)
 const VERIFY_STEP_RATIO = 0.30;        // Pass 2 verification step size (30% of clientHeight)
 const DOM_QUIET_MS = 300;              // Required ms of no DOM mutations before reading
 const DOM_MAX_WAIT_MS = 1500;          // Ceiling on DOM settle wait
@@ -37,7 +37,7 @@ const MUTATION_WAIT_MS = 1200;         // Max ms to wait for MutationObserver in
 function isDebugEnabled() {
   try {
     return window.__CHATFLOW_DEBUG__ === true ||
-           (typeof localStorage !== 'undefined' && localStorage.getItem('chatflow_debug') === 'true');
+      (typeof localStorage !== 'undefined' && localStorage.getItem('chatflow_debug') === 'true');
   } catch (_) {
     return false;
   }
@@ -47,6 +47,53 @@ function debugLog(...args) {
   if (isDebugEnabled()) {
     console.log('[ChatFlow Scanner]', ...args);
   }
+}
+
+/**
+ * Count out-of-order timestamps (>60s backwards jump in reading order) before clamping.
+ * @param {Object[]} messages
+ * @returns {number}
+ */
+export function countReadingOrderDateViolations(messages = []) {
+  if (!Array.isArray(messages) || messages.length === 0) return 0;
+  let count = 0;
+  let runMs = null;
+  for (const msg of messages) {
+    if (!msg?.timestamp) continue;
+    const d = new Date(msg.timestamp);
+    if (!isValidConversationDate(d)) continue;
+    const ms = d.getTime();
+    if (runMs !== null && ms < runMs - 60000) {
+      count++;
+    } else {
+      runMs = ms;
+    }
+  }
+  return count;
+}
+
+/**
+ * Decide whether Smart Verification (Pass 2) must run based on Pass 1 signals.
+ * @param {Object} [signals={}]
+ * @returns {{ needed: boolean, reasons: string[] }}
+ */
+export function shouldRunSmartVerification({
+  noOverlapEventsCount = 0,
+  gapEventsCount = 0,
+  uniqueUnrecognized = 0,
+  orphanRepliesCount = 0,
+  directionLowConfidence = false,
+  dateOrderViolationsCount = 0,
+  stepErrorsCount = 0
+} = {}) {
+  const reasons = [];
+  if (noOverlapEventsCount > 0 || gapEventsCount > 0) reasons.push('gap_or_no_overlap');
+  if (uniqueUnrecognized > 0) reasons.push('unrecognized_rows');
+  if (orphanRepliesCount > 0) reasons.push('orphan_replies');
+  if (directionLowConfidence) reasons.push('direction_warning');
+  if (dateOrderViolationsCount > 0) reasons.push('date_order_violation');
+  if (stepErrorsCount > 0) reasons.push('step_error');
+  return { needed: reasons.length > 0, reasons };
 }
 
 // ─── Utilities ──────────────────────────────────────────────────────────────
@@ -72,12 +119,12 @@ export function abortableSleep(ms, signal = null, ctrl = null) {
       done = true;
       if (timer) clearTimeout(timer);
       if (sig && typeof sig.removeEventListener === 'function') {
-        try { sig.removeEventListener('abort', finish); } catch (_) {}
+        try { sig.removeEventListener('abort', finish); } catch (_) { }
       }
       resolve();
     };
     if (sig && typeof sig.addEventListener === 'function') {
-      try { sig.addEventListener('abort', finish, { once: true }); } catch (_) {}
+      try { sig.addEventListener('abort', finish, { once: true }); } catch (_) { }
     }
     timer = setTimeout(finish, Math.max(0, ms));
     if (sig?.aborted || ctrl?.cancelled || ctrl?.finalized) {
@@ -110,9 +157,9 @@ function waitForDomQuiet(container, quietMs = DOM_QUIET_MS, maxWaitMs = DOM_MAX_
         resolved = true;
         if (quietTimer) clearTimeout(quietTimer);
         if (maxTimer) clearTimeout(maxTimer);
-        try { obs.disconnect(); } catch (_) {}
+        try { obs.disconnect(); } catch (_) { }
         if (sig && typeof sig.removeEventListener === 'function') {
-          try { sig.removeEventListener('abort', cleanup); } catch (_) {}
+          try { sig.removeEventListener('abort', cleanup); } catch (_) { }
         }
         resolve();
       }
@@ -129,7 +176,7 @@ function waitForDomQuiet(container, quietMs = DOM_QUIET_MS, maxWaitMs = DOM_MAX_
     });
 
     if (sig && typeof sig.addEventListener === 'function') {
-      try { sig.addEventListener('abort', cleanup, { once: true }); } catch (_) {}
+      try { sig.addEventListener('abort', cleanup, { once: true }); } catch (_) { }
     }
 
     try {
@@ -160,9 +207,9 @@ function waitForMutations(container, timeoutMs = MUTATION_WAIT_MS, ctrl = null) 
       if (!resolved) {
         resolved = true;
         if (timer) clearTimeout(timer);
-        try { obs.disconnect(); } catch (_) {}
+        try { obs.disconnect(); } catch (_) { }
         if (sig && typeof sig.removeEventListener === 'function') {
-          try { sig.removeEventListener('abort', onAbort); } catch (_) {}
+          try { sig.removeEventListener('abort', onAbort); } catch (_) { }
         }
         resolve(Boolean(val));
       }
@@ -172,7 +219,7 @@ function waitForMutations(container, timeoutMs = MUTATION_WAIT_MS, ctrl = null) 
 
     const obs = new MutationObserver(() => cleanup(true));
     if (sig && typeof sig.addEventListener === 'function') {
-      try { sig.addEventListener('abort', onAbort, { once: true }); } catch (_) {}
+      try { sig.addEventListener('abort', onAbort, { once: true }); } catch (_) { }
     }
 
     try {
@@ -514,7 +561,7 @@ export class ScanController {
   }
   resetPhaseSignal() {
     if (this.phaseController) {
-      try { this.phaseController.abort('phase_reset'); } catch (_) {}
+      try { this.phaseController.abort('phase_reset'); } catch (_) { }
     }
     this.phaseController = typeof AbortController !== 'undefined' ? new AbortController() : null;
     return this.signal;
@@ -523,14 +570,14 @@ export class ScanController {
     this.cancelled = true;
     this.stopReason = 'user_cancel';
     if (this.phaseController) {
-      try { this.phaseController.abort('user_cancel'); } catch (_) {}
+      try { this.phaseController.abort('user_cancel'); } catch (_) { }
     }
   }
   finalize() {
     this.finalized = true;
     this.stopReason = 'user_stop';
     if (this.phaseController) {
-      try { this.phaseController.abort('user_stop'); } catch (_) {}
+      try { this.phaseController.abort('user_stop'); } catch (_) { }
     }
   }
 }
@@ -540,7 +587,7 @@ export class ScanSession extends ScanController {
    * @param {(payload:Object)=>void} onEvent receives progress/state payloads
    * @param {{adapter?:Object, container?:Element, doc?:Document}} [env] injectable for tests
    */
-  constructor(onEvent = () => {}, env = {}) {
+  constructor(onEvent = () => { }, env = {}) {
     super();
     this.onEvent = onEvent;
     this.env = env;
@@ -575,7 +622,7 @@ export class ScanSession extends ScanController {
         platform: this.adapter?.name,
         ...payload
       });
-    } catch (_) {}
+    } catch (_) { }
   }
 
   setState(state, extra = {}) {
@@ -619,7 +666,7 @@ export class ScanSession extends ScanController {
         if (!this.oldestDate || d < this.oldestDate) this.oldestDate = d;
         return d;
       }
-    } catch (_) {}
+    } catch (_) { }
     return this.oldestDate;
   }
 
@@ -737,6 +784,7 @@ export class ScanSession extends ScanController {
       beginningReached: this.beginningReached,
       reason: this.endReason,
       oldestDate: this._iso(this._peekOldest()),
+      detectedMyName: validatePersonName(this.profileName, { contactName: this.chatName }) || null,
       ...extra
     };
   }
@@ -775,7 +823,7 @@ export class ScanSession extends ScanController {
   }
 
   stopWatching() {
-    if (this._observer) { try { this._observer.disconnect(); } catch (_) {} }
+    if (this._observer) { try { this._observer.disconnect(); } catch (_) { } }
     this._observer = null;
     if (this._watchTimer) clearTimeout(this._watchTimer);
     this._watchTimer = null;
@@ -803,6 +851,7 @@ export class ScanSession extends ScanController {
     const masterList = [];
     let overlapMergesCount = 0;
     let noOverlapEventsCount = 0;
+    let pass1StepErrors = Number(options.stepErrorCount) || 0;
     const gapEvents = [];
     const startedAt = Date.now();
     let lastPercent = 0;
@@ -838,7 +887,7 @@ export class ScanSession extends ScanController {
     adapter.resetAuditStats?.();
     container.scrollTop = 0;
     container.dispatchEvent(new Event('scroll', { bubbles: true }));
-    await waitForDomQuiet(container, 350, 1500, this);
+    await waitForDomQuiet(container, DOM_QUIET_MS, DOM_MAX_WAIT_MS, this);
     this._check();
 
     mergeSnapshot(masterList, adapter.extractMessages(this.doc));
@@ -904,6 +953,7 @@ export class ScanSession extends ScanController {
           directionLowLive = !!q.low;
           if (q.low) debugLog('Live direction check: LOW CONFIDENCE', q);
         } catch (liveErr) {
+          pass1StepErrors++;
           debugLog('Live direction check warning:', liveErr);
         }
       }
@@ -928,26 +978,71 @@ export class ScanSession extends ScanController {
     if (!userStopped) {
       container.scrollTop = container.scrollHeight;
       container.dispatchEvent(new Event('scroll', { bubbles: true }));
-      await waitForDomQuiet(container, 300, 1000, this);
+      await waitForDomQuiet(container, DOM_QUIET_MS, 1000, this);
       this._check();
       mergeSnapshot(masterList, adapter.extractMessages(this.doc));
     }
 
+    // Last Pass 1 reading counter == Pass 1 captured count (forced, un-throttled)
+    lastPercent = 100;
+    this.emit({ ...progressPayload(), percent: 100 }, true);
+    const pass1DurationMs = Date.now() - startedAt;
+
     // Snapshot primary sweep audit before verification pass runs (avoids double-counting candidate rows)
     const pass1Audit = adapter.getAuditSnapshot ? adapter.getAuditSnapshot() : null;
 
-    // Pass 2 verification pass (30% step starting at half-step offset) for Messenger / virtualized feeds
-    let verificationResult = { differencesCount: 0, recoveredCount: 0, details: [], ran: false };
-    const shouldVerifyPass2 = !userStopped && (!isWhatsApp || options.verifyPass === true) &&
-      (container.scrollHeight > container.clientHeight + 20);
+    // Smart Verification trigger evaluation (or Thorough Scan override)
+    let smartCheck = { needed: false, reasons: [] };
+    if (!userStopped) {
+      let dirWarn = directionLowLive;
+      let resolvedChatType = this.chatType;
+      try {
+        if (!isWhatsApp && !adapter.detectChatType) {
+          const namesMap = new Map();
+          for (const m of masterList) {
+            if (m.type === 'system' || m.isMe) continue;
+            const c = sanitizeSenderName(m.sender);
+            if (c) namesMap.set(c, (namesMap.get(c) || 0) + 1);
+          }
+          resolvedChatType = [...namesMap.values()].filter(n => n >= 3).length >= 2 ? 'group' : 'one-to-one';
+        }
+        const dirRes = resolveDirection(masterList, {
+          chatType: resolvedChatType,
+          chatName: this.chatName,
+          myName: validatePersonName(this.profileName, { contactName: this.chatName })
+        });
+        dirWarn = Boolean(dirRes?.lowConfidence);
+      } catch (checkErr) {
+        pass1StepErrors++;
+        debugLog('Post-Pass1 direction check error:', checkErr);
+      }
+      const pass1Unrec = Math.max(
+        masterList.filter(m => m.type === 'unrecognized').length,
+        pass1Audit?.uniqueUnrecognized ?? pass1Audit?.unrecognizedCount ?? 0
+      );
+      const pass1Orphan = pass1Audit?.orphanRepliesCount || 0;
+      const pass1DateViolations = countReadingOrderDateViolations(masterList);
+      smartCheck = shouldRunSmartVerification({
+        noOverlapEventsCount,
+        gapEventsCount: gapEvents.length,
+        uniqueUnrecognized: pass1Unrec,
+        orphanRepliesCount: pass1Orphan,
+        directionLowConfidence: dirWarn,
+        dateOrderViolationsCount: pass1DateViolations,
+        stepErrorsCount: pass1StepErrors
+      });
+    }
+
+    const thoroughRequested = Boolean(options.thoroughVerify || options.verifyPass);
+    const scrollable = container.scrollHeight > container.clientHeight + 20;
+    let verificationResult = { differencesCount: 0, recoveredCount: 0, details: [], durationMs: 0, ran: false };
+    const shouldVerifyPass2 = !userStopped && scrollable && (
+      thoroughRequested || (!isWhatsApp && smartCheck.needed)
+    );
     if (shouldVerifyPass2) {
       verificationResult = await this._runVerificationPass(container, adapter, masterList, phaseSignal);
       verificationResult.ran = true;
     }
-
-    // Last counter value shown == final total (forced, un-throttled)
-    lastPercent = 100;
-    this.emit({ ...progressPayload(), percent: 100 }, true);
 
     // ─── Phase 3: prepare summary ─────────────────────────────────────────
     this.setState('preparing', { count: masterList.length });
@@ -957,6 +1052,11 @@ export class ScanSession extends ScanController {
       gapEvents,
       pass1Audit,
       verificationResult,
+      verificationTriggerReasons: thoroughRequested && !smartCheck.needed
+        ? ['thorough_scan_enabled']
+        : smartCheck.reasons,
+      thoroughRequested,
+      pass1DurationMs,
       userStopped,
       myNameOverride: options.myNameOverride,
       isWhatsApp
@@ -967,17 +1067,41 @@ export class ScanSession extends ScanController {
 
   async _runVerificationPass(container, adapter, masterList, phaseSignal) {
     const verifyList = [];
-    adapter.resetSessionDates?.();
+    const fixedReadCount = masterList.length;
+    const verifyStartedAt = Date.now();
+    let verifyPercent = 0;
+
+    const emitVerify = (forcedPct = null, force = false) => {
+      const maxScroll = Math.max(1, container.scrollHeight - container.clientHeight);
+      const raw = Math.round((container.scrollTop / maxScroll) * 100);
+      verifyPercent = Math.min(100, Math.max(verifyPercent, typeof forcedPct === 'number' ? forcedPct : raw));
+      this.emit({
+        phase: 'verifying',
+        count: fixedReadCount,
+        percent: verifyPercent,
+        verifyPercent,
+        elapsedMs: Date.now() - verifyStartedAt
+      }, force);
+    };
+
+    this.setState('verifying', { count: fixedReadCount, percent: 0, verifyPercent: 0, elapsedMs: 0 });
+    if (adapter.resetVerificationPassState) {
+      adapter.resetVerificationPassState();
+    } else {
+      adapter.resetSessionDates?.();
+    }
+
     const halfOffset = Math.max(0, Math.floor(container.clientHeight * 0.20));
     container.scrollTop = halfOffset;
     container.dispatchEvent(new Event('scroll', { bubbles: true }));
     await waitForDomQuiet(container, DOM_QUIET_MS, DOM_MAX_WAIT_MS, this);
     this._check();
     if (this.finalized || phaseSignal?.aborted) {
-      return { differencesCount: 0, recoveredCount: 0, details: [], aborted: true };
+      return { differencesCount: 0, recoveredCount: 0, details: [], durationMs: Date.now() - verifyStartedAt, aborted: true };
     }
 
     mergeSnapshot(verifyList, adapter.extractMessages(this.doc));
+    emitVerify(null, true);
 
     let atBottom = 0;
     let lastTop = -1;
@@ -1010,6 +1134,8 @@ export class ScanSession extends ScanController {
         if (retryRes.overlap === 0) appendDeduplicated(verifyList, retrySnap);
       }
 
+      emitVerify();
+
       const bottomResult = adapter.hasReachedBottom(container, this.doc);
       const isStuck = (container.scrollTop === lastTop);
       if (bottomResult.reached || isStuck) {
@@ -1028,6 +1154,7 @@ export class ScanSession extends ScanController {
     await waitForDomQuiet(container, 250, 800, this);
     this._check();
     mergeSnapshot(verifyList, adapter.extractMessages(this.doc));
+    emitVerify(100, true);
 
     const rec = reconcileVerificationPass(masterList, verifyList);
     return {
@@ -1036,12 +1163,65 @@ export class ScanSession extends ScanController {
       recoveredCount: rec.recoveredCount,
       missedInPass1Count: rec.missedInPass1.length,
       missedInPass2Count: rec.missedInPass2.length,
-      details: rec.details
+      details: rec.details,
+      durationMs: Date.now() - verifyStartedAt
     };
   }
 
-  _finalize(masterList, { overlapMergesCount, noOverlapEventsCount, gapEvents = [], pass1Audit = null, verificationResult = null, myNameOverride, isWhatsApp }) {
-    const adapter = this.adapter || { name: isWhatsApp ? 'WhatsApp' : 'Messenger', rejectedSeparatorsCount: 0 };
+  /**
+   * Run Pass 2 verification on-demand after a scan has already completed.
+   * @param {{ masterList?: Object[], scanMeta?: Object }} [payload={}]
+   * @returns {Promise<Object>} Updated finalized scan payload
+   */
+  async runOnDemandVerification({ masterList = [], scanMeta = {} } = {}) {
+    this._init();
+    this._check();
+    this.finalized = false;
+    this.stopReason = null;
+    const phaseSignal = this.resetPhaseSignal();
+
+    const adapter = this.adapter;
+    const container = this.container;
+    const isWhatsApp = adapter.name === 'WhatsApp';
+    if (scanMeta.chatName) this.chatName = scanMeta.chatName;
+    if (scanMeta.chatType) this.chatType = scanMeta.chatType;
+    this.beginningReached = scanMeta.beginningReached !== undefined ? Boolean(scanMeta.beginningReached) : true;
+    this.endReason = scanMeta.endReason || 'on_demand_verify';
+
+    const listCopy = Array.isArray(masterList) ? masterList.map(m => ({ ...m })) : [];
+    const verificationResult = await this._runVerificationPass(container, adapter, listCopy, phaseSignal);
+    verificationResult.ran = true;
+
+    this.setState('preparing', { count: listCopy.length });
+    const result = this._finalize(listCopy, {
+      overlapMergesCount: scanMeta.overlapMergesCount || 0,
+      noOverlapEventsCount: scanMeta.noOverlapEventsCount || 0,
+      gapEvents: Array.isArray(scanMeta.gapEvents) ? scanMeta.gapEvents : [],
+      pass1Audit: scanMeta.pass1Audit || null,
+      verificationResult,
+      verificationTriggerReasons: ['manual_verify_now'],
+      thoroughRequested: true,
+      pass1DurationMs: scanMeta.pass1DurationMs || 0,
+      myNameOverride: scanMeta.myNameOverride,
+      isWhatsApp
+    });
+    this.setState('done', { count: listCopy.length });
+    return result;
+  }
+
+  _finalize(masterList, {
+    overlapMergesCount,
+    noOverlapEventsCount,
+    gapEvents = [],
+    pass1Audit = null,
+    verificationResult = null,
+    verificationTriggerReasons = [],
+    thoroughRequested = false,
+    pass1DurationMs = 0,
+    myNameOverride,
+    isWhatsApp
+  }) {
+    const adapter = this.adapter || this.env?.adapter || { name: isWhatsApp ? 'WhatsApp' : 'Messenger', rejectedSeparatorsCount: 0 };
 
     // Dates: WhatsApp times are exact; only Messenger may be approximate.
     // Enforce non-decreasing timestamps in reading order without re-sorting messages.
@@ -1126,8 +1306,10 @@ export class ScanSession extends ScanController {
       agreement: {},
       log: []
     };
+    const safeOverride = (myNameOverride && !isBlockedUiName(myNameOverride)) ? myNameOverride.trim() : '';
+    const safeProfile = validatePersonName(this.profileName, { contactName: this.chatName });
     let names = {
-      myName: myNameOverride || this.profileName || 'Me',
+      myName: safeOverride || safeProfile || 'Me',
       contactName: this.chatName || 'Contact',
       participants: [],
       counts: {},
@@ -1136,7 +1318,7 @@ export class ScanSession extends ScanController {
     let warnings = [];
 
     try {
-      direction = resolveDirection(masterList, { chatType, chatName: this.chatName, myName: this.profileName });
+      direction = resolveDirection(masterList, { chatType, chatName: this.chatName, myName: safeProfile });
       direction.comboUsed = toList(direction.comboUsed).map(String);
       if (direction.comboUsed.length === 0) direction.comboUsed = ['all'];
       direction.tried = toList(direction.tried).map(String);
@@ -1149,7 +1331,7 @@ export class ScanSession extends ScanController {
 
     try {
       names = finalizeSenders(masterList, {
-        chatType, chatName: this.chatName, profileName: this.profileName, myNameOverride
+        chatType, chatName: this.chatName, profileName: safeProfile, myNameOverride: safeOverride
       });
       warnings = toList(participantWarnings(masterList, chatType, names.counts));
       if (direction.lowConfidence) {
@@ -1168,6 +1350,9 @@ export class ScanSession extends ScanController {
       const s = m.sender || (m.isMe ? names.myName : names.contactName) || 'Participant';
       m.sender = s;
       senderCounts[s] = (senderCounts[s] || 0) + 1;
+      if (Array.isArray(m.reactions) && m.reactions.length > 0) {
+        m.reactions = cleanReactionsList(m.reactions, { myName: names.myName });
+      }
     }
 
     // Duplicate check
@@ -1183,31 +1368,73 @@ export class ScanSession extends ScanController {
 
     const auditSrc = pass1Audit || (adapter.getAuditSnapshot ? adapter.getAuditSnapshot() : null);
     const unrecognizedListCount = masterList.filter(m => m.type === 'unrecognized').length;
-    const unrecognizedCount = Math.max(unrecognizedListCount, auditSrc?.unrecognizedCount || 0);
+    const uniqueUnrecognized = Math.max(unrecognizedListCount, auditSrc?.uniqueUnrecognized ?? auditSrc?.unrecognizedCount ?? 0);
+    const orphanRepliesCount = auditSrc?.orphanRepliesCount || 0;
     const verificationDifferencesCount = verificationResult?.differencesCount || 0;
     const verificationRecoveredCount = verificationResult?.recoveredCount || 0;
     const gapsCount = noOverlapEventsCount;
     const healthy = (
-      unrecognizedCount === 0 &&
+      uniqueUnrecognized === 0 &&
       gapsCount === 0 &&
       verificationDifferencesCount === 0 &&
+      orphanRepliesCount === 0 &&
       !checksIncomplete &&
       !direction.lowConfidence
     );
 
+    const verificationRan = Boolean(verificationResult?.ran);
+    const verificationSkipped = !verificationRan;
+    const verificationStatus = verificationSkipped
+      ? 'Skipped'
+      : (verificationRecoveredCount > 0
+        ? `Recovered ${verificationRecoveredCount} message${verificationRecoveredCount === 1 ? '' : 's'}`
+        : 'Ran');
+    const verificationLabel = verificationSkipped
+      ? 'Verification: not needed'
+      : (verificationRecoveredCount > 0
+        ? `Verification: recovered ${verificationRecoveredCount} message${verificationRecoveredCount === 1 ? '' : 's'}`
+        : (verificationDifferencesCount > 0
+          ? `Verification: ran (${verificationDifferencesCount} differences)`
+          : 'Verification: ran cleanly (0 differences)'));
+
+    const uniqueRowsSeen = auditSrc?.uniqueRowsSeen ?? auditSrc?.candidateRowsSeen ?? masterList.length;
+    const uniqueSeparators = auditSrc?.uniqueSeparators ?? auditSrc?.separatorsCount ?? 0;
+    const uniqueSystemRows = auditSrc?.uniqueSystemRows ?? auditSrc?.systemRowsCount ?? masterList.filter(m => m.type === 'system').length;
+    const uniqueReplyLabels = auditSrc?.uniqueReplyLabels ?? auditSrc?.replyLabelsCount ?? 0;
+    const uniqueNoiseRows = auditSrc?.uniqueNoiseRows ?? auditSrc?.noiseRowsCount ?? 0;
+
     const audit = {
-      candidateRowsSeen: auditSrc?.candidateRowsSeen ?? masterList.length,
+      uniqueRowsSeen,
+      candidateRowsSeen: uniqueRowsSeen,
       messagesExported: masterList.length,
-      separatorsCount: auditSrc?.separatorsCount ?? 0,
-      systemRowsCount: auditSrc?.systemRowsCount ?? masterList.filter(m => m.type === 'system').length,
-      replyLabelsCount: auditSrc?.replyLabelsCount ?? 0,
-      noiseRowsCount: auditSrc?.noiseRowsCount ?? 0,
-      unrecognizedCount,
+      uniqueSeparators,
+      separatorsCount: uniqueSeparators,
+      uniqueSystemRows,
+      systemRowsCount: uniqueSystemRows,
+      uniqueReplyLabels,
+      replyLabelsCount: uniqueReplyLabels,
+      orphanRepliesCount,
+      unparsedReplyLabelsCount: auditSrc?.unparsedReplyLabelsCount ?? 0,
+      uniqueNoiseRows,
+      noiseRowsCount: uniqueNoiseRows,
+      uniqueUnrecognized,
+      unrecognizedCount: uniqueUnrecognized,
+      otherIconMessagesCount: auditSrc?.otherIconMessagesCount ?? 0,
+      classifyCallsCount: auditSrc?.classifyCallsCount ?? 0,
+      rowParseCacheHits: auditSrc?.rowParseCacheHits ?? 0,
+      sightings: auditSrc?.sightings || null,
       unrecognizedSamples: auditSrc?.unrecognizedSamples || [],
       gapsCount,
       gapRetriesCount: gapEvents.length,
       gapEvents,
-      verificationRan: Boolean(verificationResult?.ran),
+      verificationRan,
+      verificationSkipped,
+      verificationStatus,
+      verificationLabel,
+      verificationMode: thoroughRequested ? 'thorough' : 'smart',
+      verificationTriggerReasons: Array.isArray(verificationTriggerReasons) ? verificationTriggerReasons : [],
+      pass1DurationMs: Math.max(0, Math.round(pass1DurationMs || 0)),
+      pass2DurationMs: Math.max(0, Math.round(verificationResult?.durationMs || 0)),
       verificationDifferencesCount,
       verificationRecoveredCount,
       verificationDetails: verificationResult?.details || [],
@@ -1224,17 +1451,28 @@ export class ScanSession extends ScanController {
       noOverlapEventsCount > 0 ||
       warnings.length > 0 ||
       checksIncomplete ||
-      unrecognizedCount > 0 ||
+      uniqueUnrecognized > 0 ||
+      orphanRepliesCount > 0 ||
       verificationDifferencesCount > 0
     );
 
     let warningMessage = null;
     if (noOverlapEventsCount > 0) {
       warningMessage = 'Some messages may be missing, rescan recommended (snapshot gap detected).';
-    } else if (unrecognizedCount > 0) {
-      warningMessage = `${unrecognizedCount} unrecognized row(s) encountered during scan; exported as "[Unrecognized message]".`;
+    } else if (uniqueUnrecognized > 0) {
+      const sampleDescs = (audit.unrecognizedSamples || []).slice(0, 3).map(s => {
+        const parts = [s.direction || 'unknown', s.typeGuess || 'unknown'];
+        if (Array.isArray(s.labels) && s.labels.length > 0) parts.push(s.labels[0]);
+        else if (s.ariaLabel) parts.push(`aria="${s.ariaLabel}"`);
+        return `[${parts.join(', ')}]`;
+      });
+      warningMessage = sampleDescs.length > 0
+        ? `${uniqueUnrecognized} unique unrecognized row(s) (${sampleDescs.join('; ')}) exported as "[Unrecognized message]".`
+        : `${uniqueUnrecognized} unique unrecognized row(s) encountered during scan; exported as "[Unrecognized message]".`;
     } else if (verificationDifferencesCount > 0) {
       warningMessage = `Verification pass found ${verificationDifferencesCount} difference(s) (${verificationRecoveredCount} recovered).`;
+    } else if (orphanRepliesCount > 0) {
+      warningMessage = `${orphanRepliesCount} reply label(s) could not be paired with a reply bubble.`;
     } else if (warnings[0]) {
       warningMessage = warnings[0];
     } else if (checksIncomplete) {
@@ -1251,7 +1489,7 @@ export class ScanSession extends ScanController {
       overlapMerges: overlapMergesCount,
       noOverlapEventsCount,
       noOverlapEvents: noOverlapEventsCount,
-      rejectedSeparatorsCount: adapter.rejectedSeparatorsCount || 0,
+      rejectedSeparatorsCount: pass1Audit?.rejectedSeparators?.length ?? adapter.rejectedSeparatorsCount ?? 0,
       duplicates,
       beginningReached: this.beginningReached,
       endReason: this.endReason,
@@ -1272,7 +1510,7 @@ export class ScanSession extends ScanController {
 
     try {
       debugLog('Scan completed', { total: masterList.length, startDate, endDate, direction: toList(direction.comboUsed) });
-    } catch (_) {}
+    } catch (_) { }
 
     return {
       messages: masterList,
@@ -1297,6 +1535,18 @@ export class ScanSession extends ScanController {
 
 export function createSession(onEvent, env) {
   return new ScanSession(onEvent, env);
+}
+
+/**
+ * Convenience wrapper to run Pass 2 verification on-demand after a completed scan.
+ * @param {{ masterList?: Object[], scanMeta?: Object }} payload
+ * @param {(payload: Object) => void} [onProgress]
+ * @param {Object} [env]
+ * @returns {Promise<Object>}
+ */
+export async function runOnDemandVerification(payload, onProgress, env) {
+  const session = new ScanSession(onProgress, env);
+  return session.runOnDemandVerification(payload);
 }
 
 /**
@@ -1394,15 +1644,15 @@ export function runParticipantSanityCheck(messages, options = {}) {
     if (isTimeOrDateString(s)) hadTimeSender = true;
   }
 
-  // 2. Determine myName (from options, or most frequent outgoing non-"You" sender)
-  let myName = options.myName ? sanitizeSenderName(options.myName) : null;
+  // 2. Determine myName (from options, or most frequent outgoing non-"You"/non-UI-label sender)
+  let myName = (options.myName && !isBlockedUiName(options.myName)) ? sanitizeSenderName(options.myName) : null;
   if (!myName) {
     const outCounts = {};
     for (const m of messages) {
       if (m.type === 'system') continue;
       if (m.isMe || m.isOutgoing) {
-        const clean = sanitizeSenderName(m.sender);
-        if (clean && !isLocalizedYou(clean)) {
+        const clean = validatePersonName(m.sender, { contactName: rawChatName || '' });
+        if (clean) {
           outCounts[clean] = (outCounts[clean] || 0) + 1;
         }
       }
